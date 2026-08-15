@@ -214,6 +214,7 @@ export function WorkflowPanel({
   const aliveRef = useRef(true)
   const originRef = useRef<HTMLButtonElement | null>(null)
   const focusInputRef = useRef<HTMLInputElement | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     aliveRef.current = true
@@ -339,6 +340,28 @@ export function WorkflowPanel({
     }
   }
 
+  const onPanelKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    // The panel only sees events bubbling from inside itself, so the search
+    // shortcuts never compete with the composer's own key handling.
+    const typing = event.target instanceof HTMLInputElement
+    if (event.key === '/' && !typing) {
+      event.preventDefault()
+      searchInputRef.current?.focus()
+      return
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault()
+      searchInputRef.current?.focus()
+      return
+    }
+    // The send bar handles its own Escape; a defaultPrevented event skips this.
+    if (event.key === 'Escape' && !event.defaultPrevented && searching) {
+      event.preventDefault()
+      setQuery('')
+      searchInputRef.current?.blur()
+    }
+  }
+
   const renderActionButton = (id: WorkflowActionId) => {
     const hasSkill = skillNames.has(skillNameFor(id))
     const isPinned = pinned.includes(id)
@@ -358,6 +381,7 @@ export function WorkflowPanel({
             : (
               <>
                 <span className={css.buttonLabel}>{t(ACTION_LABEL[id])}</span>
+                <span className={css.visuallyHidden}>{t(ACTION_HINT[id])}</span>
                 {hasSkill && <span className={css.skillBadge}>{t('skill.badge')}</span>}
               </>
             )}
@@ -366,7 +390,7 @@ export function WorkflowPanel({
           type="button"
           className={css.pin}
           data-active={isPinned || undefined}
-          aria-label={t('pin.aria')}
+          aria-label={`${t('pin.aria')}：${t(ACTION_LABEL[id])}`}
           aria-pressed={isPinned}
           disabled={busy !== null}
           onClick={() => { onPin(id) }}
@@ -400,7 +424,7 @@ export function WorkflowPanel({
   ]
 
   return (
-    <div className={css.panel} data-testid="dev-workflow-panel" data-mode={mode}>
+    <div className={css.panel} data-testid="dev-workflow-panel" data-mode={mode} onKeyDown={onPanelKeyDown}>
       <div className={css.mode}>
         <div className={css.modeLabel} id="dev-workflow-mode-label">{t('mode.label')}</div>
         <div className={css.modeRow} role="group" aria-labelledby="dev-workflow-mode-label">
@@ -432,6 +456,7 @@ export function WorkflowPanel({
         <input
           type="search"
           className={css.searchInput}
+          ref={searchInputRef}
           placeholder={t('search.placeholder')}
           value={query}
           onChange={(event) => { setQuery(event.target.value) }}
@@ -566,17 +591,16 @@ export function WorkflowPanel({
           </div>
           <div
             className={css.quickTabs}
-            role="tablist"
+            role="group"
             aria-label={t('section.quick')}
           >
             {quickTabs.map(tab => (
               <button
                 key={tab.id}
                 type="button"
-                role="tab"
                 className={css.quickTab}
                 data-active={activeQuick === tab.id || undefined}
-                aria-selected={activeQuick === tab.id}
+                aria-pressed={activeQuick === tab.id}
                 disabled={tab.count === 0}
                 onClick={() => { actions.setQuickTab(tab.id) }}
               >
@@ -600,7 +624,17 @@ export function WorkflowPanel({
       )}
 
       {searching && !anyMatch && (
-        <div className={css.empty} role="status">{t('search.empty')}</div>
+        <div className={css.emptyBlock}>
+          <div className={css.empty} role="status">{t('search.empty')}</div>
+          {recent.length > 0 && (
+            <>
+              <div className={css.sectionTitle}>{t('section.recent')}</div>
+              <div className={css.compactGrid}>
+                {recent.slice(0, 3).map(id => renderActionButton(id))}
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {WORKFLOW_GROUPS.map((group) => {

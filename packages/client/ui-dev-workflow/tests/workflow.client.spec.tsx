@@ -155,6 +155,9 @@ describe('WorkflowPanel', () => {
     expect(view.getByTestId('dev-workflow-quick')).toBeTruthy()
     expect(view.getByTestId('dev-workflow-suggest')).toBeTruthy()
     expect(view.getByText('快捷')).toBeTruthy()
+    expect(view.getByRole('button', { name: '建议' }).getAttribute('aria-pressed')).toBe('true')
+    expect(view.getByRole('button', { name: '收藏' }).getAttribute('aria-pressed')).toBe('false')
+    expect(view.getAllByLabelText('收藏或取消收藏：需求分析').length).toBeGreaterThan(0)
     expect(view.getByText('规划')).toBeTruthy()
     expect(view.getByText('Agent')).toBeTruthy()
     fireEvent.click(view.getByText('Agent'))
@@ -193,7 +196,7 @@ describe('WorkflowPanel', () => {
       expect(run).toHaveBeenCalled()
       expect(instance.store.getSnapshot().recent[0]).toBe('requirements')
     })
-    fireEvent.click(view.getByRole('tab', { name: '最近' }))
+    fireEvent.click(view.getByRole('button', { name: '最近' }))
     expect(view.getByTestId('dev-workflow-recent')).toBeTruthy()
     expect(instance.store.getSnapshot().quickTab).toBe('recent')
     fireEvent.change(view.getByPlaceholderText('搜索动作…'), { target: { value: 'PR' } })
@@ -204,10 +207,10 @@ describe('WorkflowPanel', () => {
 
   it('pins without sending and keeps at most one stage open', async () => {
     const { view, run } = mountPanel()
-    const pinButtons = view.getAllByLabelText('收藏或取消收藏')
+    const pinButtons = view.getAllByLabelText(/收藏或取消收藏/)
     fireEvent.click(pinButtons[0]!)
     expect(run).not.toHaveBeenCalled()
-    fireEvent.click(view.getByRole('tab', { name: '收藏' }))
+    fireEvent.click(view.getByRole('button', { name: '收藏' }))
     expect(view.getByTestId('dev-workflow-pinned')).toBeTruthy()
     expect(view.queryByText('写提交说明')).toBeNull()
     fireEvent.click(view.getByText('交付'))
@@ -273,7 +276,7 @@ describe('WorkflowPanel', () => {
     const action = view.getAllByText('需求分析')[0]!.closest('button')!
     fireEvent.click(action)
     expect(view.getByTestId('dev-workflow-sendbar')).toBeTruthy()
-    expect(view.getByText('目标、范围、验收标准')).toBeTruthy()
+    expect(view.getAllByText('目标、范围、验收标准').length).toBeGreaterThan(0)
     const input = view.getByPlaceholderText('本次任务或范围，例如：修复 session 导出超时') as HTMLInputElement
     expect(document.activeElement).toBe(input)
     fireEvent.keyDown(view.getByTestId('dev-workflow-sendbar-form'), { key: 'a' })
@@ -375,12 +378,12 @@ describe('WorkflowPanel', () => {
     })
     expect(instance.store.getSnapshot().pinned).toHaveLength(6)
     const stories = view.getAllByText('用户故事')[0]!
-    const pin = stories.closest('div')?.querySelector('button[aria-label="收藏或取消收藏"]')
+    const pin = stories.closest('div')?.querySelector('button[aria-label^="收藏或取消收藏"]')
     expect(pin).toBeTruthy()
     fireEvent.click(pin!)
     expect(view.getByText('收藏已满（最多 6 个）')).toBeTruthy()
     act(() => { instance.actions.recordRecent('docs') })
-    fireEvent.click(view.getByRole('tab', { name: '最近' }))
+    fireEvent.click(view.getByRole('button', { name: '最近' }))
     fireEvent.click(view.getByText('清空'))
     expect(instance.store.getSnapshot().recent).toEqual([])
   })
@@ -393,6 +396,50 @@ describe('WorkflowPanel', () => {
     expect(view.getByText('写 PR 说明')).toBeTruthy()
     fireEvent.click(view.getByText('交付'))
     expect(instance.store.getSnapshot().openGroup).toBe('group.plan')
+  })
+
+  it('focuses search with slash and Ctrl/Cmd+K only outside inputs', () => {
+    const { view } = mountPanel()
+    const panel = view.getByTestId('dev-workflow-panel')
+    const search = view.getByPlaceholderText('搜索动作…') as HTMLInputElement
+    fireEvent.keyDown(panel, { key: '/' })
+    expect(document.activeElement).toBe(search)
+    search.blur()
+    fireEvent.keyDown(panel, { key: 'k', ctrlKey: true })
+    expect(document.activeElement).toBe(search)
+    search.blur()
+    fireEvent.keyDown(panel, { key: 'k', metaKey: true })
+    expect(document.activeElement).toBe(search)
+    // Slash while typing stays in the input (no refocus side effects).
+    fireEvent.keyDown(search, { key: '/' })
+    expect(document.activeElement).toBe(search)
+  })
+
+  it('clears the search with Escape and leaves send-bar Escape to its own handler', () => {
+    const { view } = mountPanel()
+    const search = view.getByPlaceholderText('搜索动作…') as HTMLInputElement
+    fireEvent.change(search, { target: { value: 'PR' } })
+    expect(view.getByText('写 PR 说明')).toBeTruthy()
+    fireEvent.keyDown(search, { key: 'Escape' })
+    expect(search.value).toBe('')
+    expect(view.queryByTestId('dev-workflow-quick')).toBeTruthy()
+    expect(document.activeElement).not.toBe(search)
+    // Escape with no query and no send bar is a no-op.
+    fireEvent.keyDown(view.getByTestId('dev-workflow-panel'), { key: 'Escape' })
+    expect(search.value).toBe('')
+  })
+
+  it('shows recent actions as a fallback under the no-match state', () => {
+    const { view, instance } = mountPanel()
+    act(() => {
+      instance.actions.recordRecent('requirements')
+      instance.actions.recordRecent('docs')
+    })
+    fireEvent.change(view.getByPlaceholderText('搜索动作…'), { target: { value: 'zzz-no-match' } })
+    expect(view.getByText('无匹配动作')).toBeTruthy()
+    expect(view.getByText('最近')).toBeTruthy()
+    expect(view.getAllByText('需求分析').length).toBeGreaterThan(0)
+    expect(view.getAllByText('写项目文档').length).toBeGreaterThan(0)
   })
 
   it('collapses the open stage when its heading is clicked again', () => {

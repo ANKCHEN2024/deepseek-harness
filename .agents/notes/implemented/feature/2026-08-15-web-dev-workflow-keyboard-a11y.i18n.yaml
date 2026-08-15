@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-15-web-dev-workflow-keyboard-a11y.md
+2026-08-15-web-dev-workflow-keyboard-a11y.md: 3bd617313ed0b8ecf9bb90adcfebc1b7291d5cc9
+2026-08-15-web-dev-workflow-keyboard-a11y.zh.md: e23d73ced400b3197653b10dd13c279c2e618a87

@@ -193,6 +193,13 @@
   cursor: not-allowed;
 }
 
+.emptyBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
 .empty {
   font-size: 12px;
   line-height: 18px;
