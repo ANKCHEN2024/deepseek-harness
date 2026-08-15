@@ -33,13 +33,6 @@ export {
   WORKFLOW_PROMPTS,
 } from './prompts.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
-  interface LocaleNamespaceMap {
-    /** Development workflow toolbox copy. */
-    'dev-workflow': DevWorkflowKey
-  }
-}
-
 /** Required services for locale, slots, session-scoped send, skills list, and panel geometry. */
 export const inject = ['slots', 'sessions', 'conversation', 'layout', 'locale', 'connection']
 

@@ -93,6 +93,13 @@ export const zh = {
 /** Locale key union derived from the Chinese dictionary. */
 export type DevWorkflowKey = keyof typeof zh
 
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface LocaleNamespaceMap {
+    /** Development workflow toolbox copy. */
+    'dev-workflow': DevWorkflowKey
+  }
+}
+
 /** English dictionary. */
 export const en = {
   'panel.title': 'Dev workflow',
