@@ -14,7 +14,7 @@ Status: implemented
 
 `@deepseek-ai/dsh-client-ui-conversation` 在现有 DetailsPanel 内声明会话作用域 list 槽 `conversation.details.workflow`。面板始终在工具详情正文上方渲染该列表。`@deepseek-ai/dsh-client-ui-dev-workflow` 向该槽注入分组按钮条，并向标题栏 utilities 贡献调用 `layout.openDetails()` 的入口。
 
-每个按钮对 `sessions.scope(sessionId).conversation.send(messageFor(id, mode))` 发送消息。当 `skill.list` 中存在 `@deepseek-ai/dsh-skill-dev-workflow` 的对应随包 skill 时，消息以 `/dev-<action>` 开头，由 host `dsh-tool-skill` 按与 `/` skill 菜单相同的路径注入 `<skill_content>`；否则回退为纯中文提示词。三十三个动作覆盖规划/设计/开发/质量/交付/总结；交付组覆盖提交 → PR → Changelog/发布说明 → 版本标签 → 上线 → 迁移/回滚 → 上线验证 → 交接；总结组覆盖项目总结 → 标准化 → 产品介绍 → 组件库 → 架构回顾 → 知识库沉淀 → 演示材料。按钮带一行说明，目录命中时显示 Skill 标记；阶段分组用手风琴展开（同时最多一个；默认打开「规划」）。`@deepseek-ai/dsh-client-ui-layout` 以约定默认宽度启动详情列，在 Session 切换（含空白新会话 hero）时保持打开，仅在没有当前 Session 时强制宽度为 0；工作流包仍提供标题栏入口，在用户显式关闭后调用 `layout.openDetails()`。窄视口仍可能被让步链自动关闭。
+每个按钮对 `sessions.scope(sessionId).conversation.send(messageFor(id, mode))` 发送消息。当 `skill.list` 中存在 `@deepseek-ai/dsh-skill-dev-workflow` 的对应随包 skill 时，消息以 `/dev-<action>` 开头，由 host `dsh-tool-skill` 按与 `/` skill 菜单相同的路径注入 `<skill_content>`；否则回退为纯中文提示词。三十三个动作覆盖规划/设计/开发/质量/交付/总结；交付组覆盖提交 → PR → Changelog/发布说明 → 版本标签 → 上线 → 迁移/回滚 → 上线验证 → 交接；总结组覆盖项目总结 → 标准化 → 产品介绍 → 组件库 → 架构回顾 → 知识库沉淀 → 演示材料。按钮带一行说明，目录命中时显示 Skill 标记；阶段分组用手风琴展开（同时最多一个；默认打开「规划」）。`defineStore` 持久化键 `dsh.dev-workflow.panel.v1` 跨 remount/刷新保存模式、展开阶段、最近（最多 8）与收藏（最多 6）；面板另提供本地搜索、基于扁平分组顺序的最多三条客户端启发式建议（不读 git），以及每个动作旁的收藏控件。成功的 `run` 调用 `recordRecent`；收藏切换不发送消息。`@deepseek-ai/dsh-client-ui-layout` 以约定默认宽度启动详情列，在 Session 切换（含空白新会话 hero）时保持打开，仅在没有当前 Session 时强制宽度为 0；工作流包仍提供标题栏入口，在用户显式关闭后调用 `layout.openDetails()`。窄视口仍可能被让步链自动关闭。
 
 ## Alternatives considered
 
@@ -39,5 +39,6 @@ Status: implemented
 - 在挂载工作流插件后，右侧列除工具检视外有了常驻产品用途。
 - 默认打开详情会增加窄视口上的横向 chrome，直到布局让步链将其关闭；空白会话在首条用户消息前即可使用工具箱。
 - 固定提示词与 skill 正文是产品文案：改措辞或动作目录是 `ui-dev-workflow` 与 `skill-dev-workflow` 包内变更，不是 settings 文档。
-- 「只分析 / 可改代码」是面板本地 UI 状态，只改变用户消息前缀；不是 Host 权限或沙箱开关。
+- 「只分析 / 可改代码」、手风琴阶段、最近与收藏持久化在 `dsh.dev-workflow.panel.v1`；它们只改变用户消息前缀或面板 chrome，不是 Host 权限或沙箱开关。
+- 建议仅按最近点击与扁平 SDLC 顺序排序；不检查仓库。
 - Skill 执行与斜杠菜单共用 host `/name` 手势；目录缺失时回退纯提示词，不在客户端伪造 `<skill_content>`。

@@ -1,6 +1,6 @@
 # 设计规格：开发工具箱智能条与交互效率
 
-状态：待实现（brainstorm 定稿）
+状态：已实现（见实现计划 docs/superpowers/plans/2026-08-15-dev-workflow-smart-strip.md）
 
 关联：[Web project development workflow toolbox Agent Note](../../../.agents/notes/implemented/feature/2026-08-15-web-dev-workflow-toolbox.md)
 

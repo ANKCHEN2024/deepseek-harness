@@ -1,18 +1,31 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { useSyncExternalStore } from 'react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { WorkflowPanel } from '../src/client/WorkflowPanel.tsx'
 import { OpenWorkflowAction } from '../src/client/OpenWorkflowAction.tsx'
 import { messageFor, preambleFor, promptFor, skillNameFor, WORKFLOW_GROUPS } from '../src/client/prompts.ts'
+import { createDevWorkflowStore } from '../src/client/stores.ts'
 import { zh } from '../src/client/locales.ts'
 
 afterEach(() => {
   cleanup()
 })
 
+beforeEach(() => {
+  localStorage.clear()
+})
+
 const t = makeTranslate(zh)
+
+/** Test-local selector hook over a framework-neutral store instance. */
+function hookOf<T>(inst: { subscribe: (fn: () => void) => () => void; getSnapshot: () => T }) {
+  return function useSelector<S>(sel: (s: T) => S): S {
+    return sel(useSyncExternalStore(inst.subscribe, inst.getSnapshot))
+  }
+}
 
 /** Shared runtime props the panel does not exercise in these unit tests. */
 function unusedRuntime() {
@@ -32,6 +45,29 @@ function unusedRuntime() {
       submit: () => {},
     },
   } as const
+}
+
+function mountPanel(overrides: {
+  run?: () => Promise<string | null>
+  listSkillNames?: () => Promise<readonly string[]>
+  openPanel?: () => void
+} = {}) {
+  const instance = createDevWorkflowStore().create()
+  const run = overrides.run ?? vi.fn(async () => null)
+  const openPanel = overrides.openPanel ?? vi.fn()
+  const listSkillNames = overrides.listSkillNames ?? vi.fn(async () => [] as string[])
+  const view = render(
+    <WorkflowPanel
+      {...unusedRuntime()}
+      useStore={hookOf(instance.store)}
+      actions={instance.actions}
+      run={run}
+      listSkillNames={listSkillNames}
+      openPanel={openPanel}
+      t={t}
+    />,
+  )
+  return { view, run, openPanel, listSkillNames, instance }
 }
 
 describe('dev-workflow prompts', () => {
@@ -60,29 +96,22 @@ describe('dev-workflow prompts', () => {
 })
 
 describe('WorkflowPanel', () => {
-  it('renders stage headings, skill badges, and sends the selected action with the active mode', async () => {
+  it('renders suggestions, stage headings, skill badges, and sends with active mode', async () => {
     const run = vi.fn(async () => null)
     const openPanel = vi.fn()
     const listSkillNames = vi.fn(async () => ['dev-docs', 'dev-requirements'])
-    const view = render(
-      <WorkflowPanel
-        {...unusedRuntime()}
-        run={run}
-        listSkillNames={listSkillNames}
-        openPanel={openPanel}
-        t={t}
-      />,
-    )
+    const { view } = mountPanel({ run, openPanel, listSkillNames })
     expect(openPanel).toHaveBeenCalled()
+    expect(view.getByTestId('dev-workflow-suggest')).toBeTruthy()
+    expect(view.getByText('建议')).toBeTruthy()
     expect(view.getByText('规划')).toBeTruthy()
-    expect(view.getByText('目标、范围、验收标准')).toBeTruthy()
+    expect(view.getAllByText('需求分析').length).toBeGreaterThan(0)
     await waitFor(() => {
       expect(view.getAllByText('Skill').length).toBeGreaterThan(0)
     })
     expect(view.queryByText('设计 UI')).toBeNull()
     fireEvent.click(view.getByText('设计'))
     expect(view.getByText('设计 UI')).toBeTruthy()
-    expect(view.queryByText('目标、范围、验收标准')).toBeNull()
     fireEvent.click(view.getByText('只分析'))
     fireEvent.click(view.getByText('写项目文档'))
     await waitFor(() => {
@@ -90,50 +119,41 @@ describe('WorkflowPanel', () => {
     })
   })
 
-  it('keeps at most one stage open and exposes ship plus wrap-up sets', () => {
-    const view = render(
-      <WorkflowPanel
-        {...unusedRuntime()}
-        run={async () => null}
-        listSkillNames={async () => []}
-        openPanel={() => {}}
-        t={t}
-      />,
-    )
-    expect(view.getByText('需求分析')).toBeTruthy()
+  it('records recent after a successful send and filters by search', async () => {
+    const { view, run, instance } = mountPanel({
+      run: vi.fn(async () => null),
+    })
+    fireEvent.click(view.getAllByText('需求分析')[0]!)
+    await waitFor(() => {
+      expect(run).toHaveBeenCalled()
+      expect(instance.store.getSnapshot().recent[0]).toBe('requirements')
+    })
+    expect(view.getByTestId('dev-workflow-recent')).toBeTruthy()
+    fireEvent.change(view.getByPlaceholderText('搜索动作…'), { target: { value: 'PR' } })
+    expect(view.queryByTestId('dev-workflow-suggest')).toBeNull()
+    expect(view.getByText('写 PR 说明')).toBeTruthy()
+    expect(view.queryByText('写项目文档')).toBeNull()
+  })
+
+  it('pins without sending and keeps at most one stage open', async () => {
+    const { view, run } = mountPanel()
+    const pinButtons = view.getAllByLabelText('收藏或取消收藏')
+    fireEvent.click(pinButtons[0]!)
+    expect(run).not.toHaveBeenCalled()
+    expect(view.getByTestId('dev-workflow-pinned')).toBeTruthy()
     expect(view.queryByText('写提交说明')).toBeNull()
     fireEvent.click(view.getByText('交付'))
-    expect(view.queryByText('需求分析')).toBeNull()
     expect(view.getByText('写提交说明')).toBeTruthy()
     expect(view.getByText('写发布说明')).toBeTruthy()
-    expect(view.getByText('回滚预案')).toBeTruthy()
-    expect(view.getByText('交接说明')).toBeTruthy()
-    expect(view.getByText('上线验证')).toBeTruthy()
     fireEvent.click(view.getByText('总结'))
     expect(view.queryByText('写发布说明')).toBeNull()
     expect(view.getByText('项目总结')).toBeTruthy()
-    expect(view.getByText('标准化')).toBeTruthy()
-    expect(view.getByText('产品介绍')).toBeTruthy()
-    expect(view.getByText('组件库')).toBeTruthy()
-    expect(view.getByText('架构回顾')).toBeTruthy()
-    expect(view.getByText('知识库沉淀')).toBeTruthy()
-    expect(view.getByText('演示材料')).toBeTruthy()
-    fireEvent.click(view.getByText('总结'))
-    expect(view.queryByText('项目总结')).toBeNull()
   })
 
   it('surfaces sendFailed when run returns an English failure line', async () => {
     const run = vi.fn(async () => 'conversation.send failed: OFFLINE: gone')
-    const view = render(
-      <WorkflowPanel
-        {...unusedRuntime()}
-        run={run}
-        listSkillNames={async () => []}
-        openPanel={() => {}}
-        t={t}
-      />,
-    )
-    fireEvent.click(view.getByText('需求分析'))
+    const { view } = mountPanel({ run })
+    fireEvent.click(view.getAllByText('需求分析')[0]!)
     await waitFor(() => {
       expect(view.getByText('发送失败')).toBeTruthy()
     })

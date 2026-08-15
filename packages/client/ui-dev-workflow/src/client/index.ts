@@ -18,6 +18,7 @@ import {
   type WorkflowActionId,
   type WorkflowMode,
 } from './prompts.ts'
+import { createDevWorkflowStore } from './stores.ts'
 import { en, NS, zh, type DevWorkflowKey } from './locales.ts'
 
 export type { DevWorkflowKey, WorkflowActionId, WorkflowMode }
@@ -52,6 +53,7 @@ export function apply(ctx: ClientContext): void {
       id: 'dev-workflow',
       order: 10,
       locale: NS,
+      store: createDevWorkflowStore,
       inject: (sessionId: SessionId): WorkflowPanelInjected => ({
         openPanel: () => { ctx.layout.openDetails() },
         listSkillNames: async () => {

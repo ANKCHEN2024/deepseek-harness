@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { WorkflowActionId, WorkflowMode } from './prompts.ts'
 import { skillNameFor, WORKFLOW_GROUPS } from './prompts.ts'
+import { suggestActions } from './suggest.ts'
+import type { createDevWorkflowStore } from './stores.ts'
 import { NS, type DevWorkflowKey } from './locales.ts'
 import css from './DevWorkflow.module.css'
 
@@ -82,9 +84,6 @@ const ACTION_HINT: Readonly<Record<WorkflowActionId, DevWorkflowKey>> = {
 
 type WorkflowGroupHeading = (typeof WORKFLOW_GROUPS)[number]['headingKey']
 
-/** Accordion default: only the Plan stage starts open. */
-const DEFAULT_OPEN_GROUP: WorkflowGroupHeading = 'group.plan'
-
 /** Injected verbs for the workflow panel. */
 export interface WorkflowPanelInjected {
   /**
@@ -107,19 +106,31 @@ export interface WorkflowPanelInjected {
 export type WorkflowPanelProps =
   PropsRuntime<'conversation.details.workflow'>
   & InjectFace<WorkflowPanelInjected>
+  & PropsStore<ReturnType<typeof createDevWorkflowStore>>
   & PropsLocale<typeof NS>
 
 /**
- * Grouped SDLC shortcut buttons with an analyze/edit mode toggle.
+ * Grouped SDLC shortcut buttons with search, suggestions, recent, and pins.
  * Stage groups use exclusive accordion expand (at most one open).
  * Each click sends a skill gesture (`/dev-<id>`) plus task text through `run`.
  */
-export function WorkflowPanel({ run, listSkillNames, openPanel, t }: WorkflowPanelProps) {
-  const [mode, setMode] = useState<WorkflowMode>('edit')
-  const [openGroup, setOpenGroup] = useState<WorkflowGroupHeading | null>(DEFAULT_OPEN_GROUP)
+export function WorkflowPanel({
+  run,
+  listSkillNames,
+  openPanel,
+  useStore,
+  actions,
+  t,
+}: WorkflowPanelProps) {
+  const mode = useStore(s => s.mode)
+  const openGroup = useStore(s => s.openGroup)
+  const recent = useStore(s => s.recent)
+  const pinned = useStore(s => s.pinned)
+  const [query, setQuery] = useState('')
   const [skillNames, setSkillNames] = useState<ReadonlySet<string>>(() => new Set())
   const [busy, setBusy] = useState<WorkflowActionId | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pinFullHint, setPinFullHint] = useState(false)
   const aliveRef = useRef(true)
 
   useEffect(() => {
@@ -136,8 +147,32 @@ export function WorkflowPanel({ run, listSkillNames, openPanel, t }: WorkflowPan
     }
   }, [listSkillNames, openPanel])
 
+  const trimmed = query.trim().toLowerCase()
+  const searching = trimmed.length > 0
+  const matches = (id: WorkflowActionId): boolean => {
+    if (!searching) return true
+    const label = t(ACTION_LABEL[id]).toLowerCase()
+    const hint = t(ACTION_HINT[id]).toLowerCase()
+    return label.includes(trimmed) || hint.includes(trimmed)
+  }
+
+  const suggestions = searching
+    ? []
+    : suggestActions({ recent, pinned, mode })
+  const recentShown = searching ? [] : recent.slice(0, 5)
+  const pinnedShown = searching ? [] : pinned
+
   const toggleGroup = (headingKey: WorkflowGroupHeading): void => {
-    setOpenGroup(prev => (prev === headingKey ? null : headingKey))
+    actions.setOpenGroup(openGroup === headingKey ? null : headingKey)
+  }
+
+  const onPin = (id: WorkflowActionId): void => {
+    if (!pinned.includes(id) && pinned.length >= 6) {
+      setPinFullHint(true)
+      return
+    }
+    setPinFullHint(false)
+    actions.togglePin(id)
   }
 
   const onClick = (id: WorkflowActionId): void => {
@@ -147,12 +182,75 @@ export function WorkflowPanel({ run, listSkillNames, openPanel, t }: WorkflowPan
     void run(id, mode).then((failure) => {
       if (!aliveRef.current) return
       setBusy(null)
+      if (failure === null) {
+        actions.recordRecent(id)
+        setError(null)
+        return
+      }
       setError(failure)
     }, (reason: unknown) => {
       if (!aliveRef.current) return
       setBusy(null)
       setError(reason instanceof Error ? reason.message : String(reason))
     })
+  }
+
+  const renderActionButton = (id: WorkflowActionId, opts?: { compact?: boolean }) => {
+    const hasSkill = skillNames.has(skillNameFor(id))
+    const isPinned = pinned.includes(id)
+    return (
+      <div key={id} className={css.actionRow}>
+        <button
+          type="button"
+          className={opts?.compact ? css.compactButton : css.button}
+          disabled={busy !== null}
+          aria-busy={busy === id || undefined}
+          title={hasSkill ? `${t(ACTION_HINT[id])} · ${t('skill.badge')}` : t(ACTION_HINT[id])}
+          onClick={() => { onClick(id) }}
+        >
+          {busy === id
+            ? <span className={css.buttonLabel}>{t('busy')}</span>
+            : opts?.compact
+              ? <span className={css.buttonLabel}>{t(ACTION_LABEL[id])}</span>
+              : (
+                <>
+                  <span className={css.buttonTop}>
+                    <span className={css.buttonLabel}>{t(ACTION_LABEL[id])}</span>
+                    {hasSkill && <span className={css.skillBadge}>{t('skill.badge')}</span>}
+                  </span>
+                  <span className={css.buttonHint}>{t(ACTION_HINT[id])}</span>
+                </>
+              )}
+        </button>
+        <button
+          type="button"
+          className={css.pin}
+          data-active={isPinned || undefined}
+          aria-label={t('pin.aria')}
+          aria-pressed={isPinned}
+          disabled={busy !== null}
+          onClick={() => { onPin(id) }}
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden>
+            <path
+              d="M8 2l1.2 3.6H13l-3 2.2 1.2 3.6L8 9.2 4.8 11.4 6 7.8 3 5.6h3.8L8 2z"
+              fill={isPinned ? 'currentColor' : 'none'}
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    )
+  }
+
+  let anyMatch = false
+  for (const group of WORKFLOW_GROUPS) {
+    if (group.actions.some(matches)) {
+      anyMatch = true
+      break
+    }
   }
 
   return (
@@ -165,7 +263,7 @@ export function WorkflowPanel({ run, listSkillNames, openPanel, t }: WorkflowPan
             className={css.modeButton}
             data-active={mode === 'analyze' || undefined}
             aria-pressed={mode === 'analyze'}
-            onClick={() => { setMode('analyze') }}
+            onClick={() => { actions.setMode('analyze') }}
           >
             <span>{t('mode.analyze')}</span>
             <span className={css.modeHint}>{t('mode.analyze.hint')}</span>
@@ -175,61 +273,98 @@ export function WorkflowPanel({ run, listSkillNames, openPanel, t }: WorkflowPan
             className={css.modeButton}
             data-active={mode === 'edit' || undefined}
             aria-pressed={mode === 'edit'}
-            onClick={() => { setMode('edit') }}
+            onClick={() => { actions.setMode('edit') }}
           >
             <span>{t('mode.edit')}</span>
             <span className={css.modeHint}>{t('mode.edit.hint')}</span>
           </button>
         </div>
       </div>
+
+      <label className={css.search}>
+        <span className={css.visuallyHidden}>{t('search.placeholder')}</span>
+        <input
+          type="search"
+          className={css.searchInput}
+          placeholder={t('search.placeholder')}
+          value={query}
+          onChange={(event) => { setQuery(event.target.value) }}
+        />
+      </label>
+
+      {!searching && suggestions.length > 0 && (
+        <section className={css.section} data-testid="dev-workflow-suggest">
+          <div className={css.sectionTitle}>{t('section.suggest')}</div>
+          <div className={css.compactGrid}>
+            {suggestions.map(id => renderActionButton(id, { compact: true }))}
+          </div>
+        </section>
+      )}
+
+      {!searching && pinnedShown.length > 0 && (
+        <section className={css.section} data-testid="dev-workflow-pinned">
+          <div className={css.sectionTitle}>{t('section.pinned')}</div>
+          <div className={css.compactGrid}>
+            {pinnedShown.map(id => renderActionButton(id, { compact: true }))}
+          </div>
+        </section>
+      )}
+
+      {!searching && recentShown.length > 0 && (
+        <section className={css.section} data-testid="dev-workflow-recent">
+          <div className={css.sectionHeading}>
+            <div className={css.sectionTitle}>{t('section.recent')}</div>
+            <button
+              type="button"
+              className={css.clearRecent}
+              onClick={() => { actions.clearRecent() }}
+            >
+              {t('recent.clear')}
+            </button>
+          </div>
+          <div className={css.compactGrid}>
+            {recentShown.map(id => renderActionButton(id, { compact: true }))}
+          </div>
+        </section>
+      )}
+
+      {searching && !anyMatch && (
+        <div className={css.empty} role="status">{t('search.empty')}</div>
+      )}
+
       {WORKFLOW_GROUPS.map((group) => {
-        const expanded = openGroup === group.headingKey
+        const visible = group.actions.filter(matches)
+        if (searching && visible.length === 0) return null
+        const expanded = searching || openGroup === group.headingKey
         return (
           <section key={group.headingKey} className={css.group}>
             <button
               type="button"
               className={css.headingRow}
               aria-expanded={expanded}
-              onClick={() => { toggleGroup(group.headingKey) }}
+              onClick={() => {
+                if (searching) return
+                toggleGroup(group.headingKey)
+              }}
             >
               <span className={css.heading}>{t(group.headingKey)}</span>
-              <svg className={css.chevron} viewBox="0 0 16 16" width="12" height="12" aria-hidden>
-                <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              {!searching && (
+                <svg className={css.chevron} viewBox="0 0 16 16" width="12" height="12" aria-hidden>
+                  <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
             </button>
             {expanded && (
               <div className={css.grid}>
-                {group.actions.map((id) => {
-                  const hasSkill = skillNames.has(skillNameFor(id))
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      className={css.button}
-                      disabled={busy !== null}
-                      aria-busy={busy === id || undefined}
-                      title={hasSkill ? `${t(ACTION_HINT[id])} · ${t('skill.badge')}` : t(ACTION_HINT[id])}
-                      onClick={() => { onClick(id) }}
-                    >
-                      {busy === id
-                        ? <span className={css.buttonLabel}>{t('busy')}</span>
-                        : (
-                          <>
-                            <span className={css.buttonTop}>
-                              <span className={css.buttonLabel}>{t(ACTION_LABEL[id])}</span>
-                              {hasSkill && <span className={css.skillBadge}>{t('skill.badge')}</span>}
-                            </span>
-                            <span className={css.buttonHint}>{t(ACTION_HINT[id])}</span>
-                          </>
-                        )}
-                    </button>
-                  )
-                })}
+                {visible.map(id => renderActionButton(id))}
               </div>
             )}
           </section>
         )
       })}
+      {pinFullHint && (
+        <div className={css.hintStatus} role="status">{t('pin.full')}</div>
+      )}
       {error !== null && (
         <div className={css.error} role="status" title={error}>{t('sendFailed')}</div>
       )}
