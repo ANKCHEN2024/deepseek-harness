@@ -31,13 +31,15 @@ export function suggestActions(input: {
   /* v8 ignore next -- callers only pass catalog ids; empty recent already returned */
   if (anchor === undefined) return [...EMPTY_RECENT_DEFAULT]
   const idx = FLAT.indexOf(anchor)
-  const start = idx < 0 ? 0 : idx + 1
+  // A non-catalog anchor (-1) wraps to the first entry: -1 + 1 = 0.
+  const start = idx + 1
   const out: WorkflowActionId[] = []
   for (let i = 0; i < FLAT.length && out.length < 3; i++) {
     const id = FLAT[(start + i) % FLAT.length]
     /* v8 ignore next -- FLAT is non-empty and modulo stays in range */
     if (id === undefined) continue
-    if (!out.includes(id)) out.push(id)
+    // Three consecutive positions in a cycle of 48 distinct ids never repeat.
+    out.push(id)
   }
   return out
 }

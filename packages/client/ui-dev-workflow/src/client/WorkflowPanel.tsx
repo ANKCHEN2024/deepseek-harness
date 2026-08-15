@@ -1,8 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import {
+  useEffect, useRef, useState,
+  type FormEvent, type KeyboardEvent, type MouseEvent,
+} from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { WorkflowActionId, WorkflowMode } from './prompts.ts'
-import { skillNameFor, WORKFLOW_GROUPS } from './prompts.ts'
+import {
+  ACTION_RISK, skillNameFor, WORKFLOW_GROUPS,
+  type WorkflowActionId, type WorkflowMode,
+} from './prompts.ts'
 import { suggestActions } from './suggest.ts'
 import type { createDevWorkflowStore, DevWorkflowQuickTab } from './stores.ts'
 import { NS, type DevWorkflowKey } from './locales.ts'
@@ -114,15 +119,24 @@ const ACTION_HINT: Readonly<Record<WorkflowActionId, DevWorkflowKey>> = {
 
 type WorkflowGroupHeading = (typeof WORKFLOW_GROUPS)[number]['headingKey']
 
+/** Categorized failure of one toolbox send. */
+export type WorkflowRunFailureKind = 'scope' | 'service' | 'send'
+
+/** Outcome of one toolbox send: success, or a categorized failure with details. */
+export type WorkflowRunResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly kind: WorkflowRunFailureKind; readonly detail: string }
+
 /** Injected verbs for the workflow panel. */
 export interface WorkflowPanelInjected {
   /**
    * Send one workflow prompt into this session under the chosen mode.
    * @param id - workflow action id.
    * @param mode - analyze-only or allow-edits.
-   * @returns null on success; an English failure line otherwise.
+   * @param focus - optional free-text task scope from the send bar.
+   * @returns success, or a categorized failure.
    */
-  run: (id: WorkflowActionId, mode: WorkflowMode) => Promise<string | null>
+  run: (id: WorkflowActionId, mode: WorkflowMode, focus: string) => Promise<WorkflowRunResult>
   /**
    * List user-invocable skill names available to this session (for Skill badges).
    * @returns skill name tokens without a leading slash.
@@ -130,6 +144,17 @@ export interface WorkflowPanelInjected {
   listSkillNames: () => Promise<readonly string[]>
   /** Ensure the right details column is open for this toolbox. */
   openPanel: () => void
+}
+
+/**
+ * Per-send default mode: remote-publishing actions start analyze-only so a
+ * stray click cannot push; every other action follows the panel's global mode.
+ * @param id - workflow action id.
+ * @param globalMode - the panel-level persisted mode.
+ * @returns the mode the send bar opens with.
+ */
+export function defaultSendMode(id: WorkflowActionId, globalMode: WorkflowMode): WorkflowMode {
+  return ACTION_RISK[id] === 'publishes' ? 'analyze' : globalMode
 }
 
 /** Full props for the details-column workflow toolbox. */
@@ -180,9 +205,15 @@ export function WorkflowPanel({
   const [query, setQuery] = useState('')
   const [skillNames, setSkillNames] = useState<ReadonlySet<string>>(() => new Set())
   const [busy, setBusy] = useState<WorkflowActionId | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [pinFullHint, setPinFullHint] = useState(false)
+  const [pending, setPending] = useState<{ id: WorkflowActionId; mode: WorkflowMode } | null>(null)
+  const [focusText, setFocusText] = useState('')
+  const [sendError, setSendError] = useState<{ kind: WorkflowRunFailureKind; detail: string } | null>(null)
+  const [showDetail, setShowDetail] = useState(false)
+  const [sentId, setSentId] = useState<WorkflowActionId | null>(null)
   const aliveRef = useRef(true)
+  const originRef = useRef<HTMLButtonElement | null>(null)
+  const focusInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     aliveRef.current = true
@@ -197,6 +228,19 @@ export function WorkflowPanel({
       aliveRef.current = false
     }
   }, [listSkillNames, openPanel])
+
+  // Move focus into the task input whenever a (new) action opens the send bar.
+  useEffect(() => {
+    if (pending === null) return
+    focusInputRef.current?.focus()
+  }, [pending?.id])
+
+  // Auto-clear the sent status after a few seconds.
+  useEffect(() => {
+    if (sentId === null) return
+    const timer = setTimeout(() => { setSentId(null) }, 4000)
+    return () => { clearTimeout(timer) }
+  }, [sentId])
 
   const trimmed = query.trim().toLowerCase()
   const searching = trimmed.length > 0
@@ -241,25 +285,58 @@ export function WorkflowPanel({
     actions.togglePin(id)
   }
 
-  const onClick = (id: WorkflowActionId): void => {
+  const openSendBar = (id: WorkflowActionId, event: MouseEvent<HTMLButtonElement>): void => {
     /* v8 ignore next -- action buttons set disabled while busy */
     if (busy !== null) return
+    originRef.current = event.currentTarget
+    setPending({ id, mode: defaultSendMode(id, mode) })
+    setSendError(null)
+    setShowDetail(false)
+  }
+
+  const cancelSend = (): void => {
+    setPending(null)
+    setFocusText('')
+    setSendError(null)
+    setShowDetail(false)
+    originRef.current?.focus()
+    originRef.current = null
+  }
+
+  const confirmSend = (): void => {
+    /* v8 ignore next -- the send bar disables its controls while busy */
+    if (busy !== null || pending === null) return
+    const { id, mode: sendMode } = pending
     setBusy(id)
-    setError(null)
-    void run(id, mode).then((failure) => {
+    setSendError(null)
+    void run(id, sendMode, focusText.trim()).then((result) => {
       if (!aliveRef.current) return
       setBusy(null)
-      if (failure === null) {
+      if (result.ok) {
         actions.recordRecent(id)
-        setError(null)
+        setPending(null)
+        setFocusText('')
+        setSentId(id)
         return
       }
-      setError(failure)
+      setSendError({ kind: result.kind, detail: result.detail })
     }, (reason: unknown) => {
       if (!aliveRef.current) return
       setBusy(null)
-      setError(reason instanceof Error ? reason.message : String(reason))
+      setSendError({ kind: 'send', detail: reason instanceof Error ? reason.message : String(reason) })
     })
+  }
+
+  const onSendbarSubmit = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault()
+    confirmSend()
+  }
+
+  const onSendbarKeyDown = (event: KeyboardEvent<HTMLFormElement>): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      cancelSend()
+    }
   }
 
   const renderActionButton = (id: WorkflowActionId) => {
@@ -274,7 +351,7 @@ export function WorkflowPanel({
           disabled={busy !== null}
           aria-busy={busy === id || undefined}
           title={title}
-          onClick={() => { onClick(id) }}
+          onClick={(event) => { openSendBar(id, event) }}
         >
           {busy === id
             ? <span className={css.buttonLabel}>{t('busy')}</span>
@@ -360,6 +437,118 @@ export function WorkflowPanel({
           onChange={(event) => { setQuery(event.target.value) }}
         />
       </label>
+
+      {pending !== null && (
+        <section className={css.sendbar} aria-label={t('sendbar.title')} data-testid="dev-workflow-sendbar">
+          <div className={css.sendbarHeading}>
+            {t('sendbar.title')} · {t(ACTION_LABEL[pending.id])}
+          </div>
+          <div className={css.sendbarHint}>{t(ACTION_HINT[pending.id])}</div>
+          {ACTION_RISK[pending.id] === 'publishes' && (
+            <div className={css.riskPublish} role="note">{t('sendbar.risk.publish')}</div>
+          )}
+          {ACTION_RISK[pending.id] === 'writes-repo' && pending.mode === 'edit' && (
+            <div className={css.riskRepo} role="note">{t('sendbar.risk.repo')}</div>
+          )}
+          <form
+            className={css.sendbarForm}
+            data-testid="dev-workflow-sendbar-form"
+            onSubmit={onSendbarSubmit}
+            onKeyDown={onSendbarKeyDown}
+          >
+            <label className={css.sendbarField}>
+              <span className={css.sendbarFieldLabel}>{t('sendbar.focus.label')}</span>
+              <input
+                type="text"
+                className={css.sendbarInput}
+                ref={focusInputRef}
+                value={focusText}
+                disabled={busy !== null}
+                placeholder={t('sendbar.focus.placeholder')}
+                onChange={(event) => { setFocusText(event.target.value) }}
+              />
+            </label>
+            <div className={css.sendbarModes} role="group" aria-label={t('sendbar.mode.label')}>
+              <button
+                type="button"
+                className={css.modeButton}
+                data-active={pending.mode === 'analyze' || undefined}
+                aria-pressed={pending.mode === 'analyze'}
+                disabled={busy !== null}
+                onClick={() => { setPending({ ...pending, mode: 'analyze' }) }}
+              >
+                {t('mode.analyze')}
+              </button>
+              <button
+                type="button"
+                className={css.modeButton}
+                data-active={pending.mode === 'edit' || undefined}
+                aria-pressed={pending.mode === 'edit'}
+                disabled={busy !== null}
+                onClick={() => { setPending({ ...pending, mode: 'edit' }) }}
+              >
+                {t('mode.edit')}
+              </button>
+            </div>
+            {ACTION_RISK[pending.id] === 'publishes' && pending.mode === 'analyze' && (
+              <div className={css.riskHint} role="note">{t('sendbar.risk.defaultAnalyze')}</div>
+            )}
+            {sendError !== null && (
+              <div className={css.errorBlock} role="alert">
+                <div className={css.errorLine}>
+                  <span className={css.errorText}>
+                    {sendError.kind === 'scope'
+                      ? t('error.scope')
+                      : sendError.kind === 'service'
+                        ? t('error.service')
+                        : t('error.send')}
+                  </span>
+                  <button
+                    type="button"
+                    className={css.detailToggle}
+                    disabled={busy !== null}
+                    aria-expanded={showDetail}
+                    onClick={() => { setShowDetail(prev => !prev) }}
+                  >
+                    {showDetail ? t('sendbar.detail.hide') : t('sendbar.detail.show')}
+                  </button>
+                </div>
+                {showDetail && (
+                  <div className={css.errorDetail}>{sendError.detail}</div>
+                )}
+              </div>
+            )}
+            <div className={css.sendbarActions}>
+              <button
+                type="button"
+                className={css.sendbarCancel}
+                disabled={busy !== null}
+                onClick={cancelSend}
+              >
+                {t('sendbar.cancel')}
+              </button>
+              {sendError !== null && (
+                <button
+                  type="button"
+                  className={css.sendbarRetry}
+                  disabled={busy !== null}
+                  onClick={confirmSend}
+                >
+                  {t('sendbar.retry')}
+                </button>
+              )}
+              <button
+                type="submit"
+                className={css.sendbarConfirm}
+                disabled={busy !== null}
+                aria-busy={busy !== null || undefined}
+              >
+                {busy !== null ? t('busy') : t('sendbar.confirm')}
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       {activeQuick !== null && (
         <section className={css.section} data-testid="dev-workflow-quick">
@@ -447,8 +636,10 @@ export function WorkflowPanel({
       {pinFullHint && (
         <div className={css.hintStatus} role="status">{t('pin.full')}</div>
       )}
-      {error !== null && (
-        <div className={css.error} role="status" title={error}>{t('sendFailed')}</div>
+      {sentId !== null && (
+        <div className={css.statusSent} role="status">
+          {t('status.sent')}：{t(ACTION_LABEL[sentId])}
+        </div>
       )}
     </div>
   )

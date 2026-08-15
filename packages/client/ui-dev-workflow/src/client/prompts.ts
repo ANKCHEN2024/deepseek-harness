@@ -61,6 +61,69 @@ export type WorkflowActionId =
  */
 export type WorkflowMode = 'analyze' | 'edit'
 
+/**
+ * How far an action can go beyond producing text when run in edit mode.
+ * `publishes` performs remote side effects (commit/push, create a private
+ * repo); `writes-repo` may modify local working-tree files; `safe` never
+ * executes mutating commands.
+ */
+export type WorkflowRisk = 'safe' | 'writes-repo' | 'publishes'
+
+/**
+ * Side-effect risk per workflow action, derived from its prompt body's edit
+ * clauses. The send bar reads it to pick the per-send default mode and risk copy.
+ */
+export const ACTION_RISK: Readonly<Record<WorkflowActionId, WorkflowRisk>> = {
+  'agent-autonomous': 'writes-repo',
+  'agent-investigate': 'writes-repo',
+  'agent-fix-loop': 'writes-repo',
+  'agent-verify-gate': 'writes-repo',
+  'agent-goal-drive': 'writes-repo',
+  'agent-parallel': 'writes-repo',
+  requirements: 'safe',
+  'user-stories': 'safe',
+  'task-breakdown': 'safe',
+  docs: 'writes-repo',
+  'ui-design': 'safe',
+  'tech-design': 'safe',
+  'api-design': 'safe',
+  'data-model': 'safe',
+  implement: 'writes-repo',
+  refactor: 'writes-repo',
+  optimize: 'writes-repo',
+  'code-review': 'writes-repo',
+  'security-review': 'writes-repo',
+  'add-tests': 'writes-repo',
+  'a11y-check': 'writes-repo',
+  debug: 'writes-repo',
+  'dead-code': 'writes-repo',
+  'deps-hygiene': 'writes-repo',
+  'temp-cleanup': 'writes-repo',
+  'import-hygiene': 'writes-repo',
+  'debug-residue': 'writes-repo',
+  'git-status-brief': 'safe',
+  'commit-message': 'writes-repo',
+  'commit-draft': 'safe',
+  'commit-push': 'publishes',
+  'github-private-publish': 'publishes',
+  'pr-description': 'safe',
+  changelog: 'writes-repo',
+  'release-notes': 'safe',
+  'version-tag': 'writes-repo',
+  'deploy-checklist': 'safe',
+  'migration-plan': 'safe',
+  'rollback-plan': 'safe',
+  'smoke-verify': 'safe',
+  'handoff-notes': 'safe',
+  'project-summary': 'safe',
+  standardize: 'writes-repo',
+  'product-deck': 'writes-repo',
+  'component-library': 'writes-repo',
+  'architecture-retro': 'safe',
+  'knowledge-base': 'writes-repo',
+  'demo-kit': 'safe',
+}
+
 /** One grouped section of the toolbox. */
 export interface WorkflowGroup {
   /** Locale key for the group heading. */
@@ -530,19 +593,31 @@ export function skillNameFor(id: WorkflowActionId): string {
 }
 
 /**
+ * Append the user's task scope to a workflow prompt body when provided.
+ * @param focus - optional free-text task description from the send bar.
+ * @returns scope paragraph with a trailing newline, or an empty string.
+ */
+export function focusBlockFor(focus?: string): string {
+  const trimmed = focus?.trim()
+  if (trimmed === undefined || trimmed === '') return ''
+  return `\n本次任务范围（仅针对此范围，不要扩大到无关内容）：\n${trimmed}\n`
+}
+
+/**
  * User message that loads the bundled workflow skill then applies mode + focus.
  * The leading `/dev-<id>` token is the host gesture recognized by `dsh-tool-skill`.
  * @param id - workflow action id.
  * @param mode - analyze-only or allow-edits.
- * @param options - when `skillAvailable` is false, omit the slash token and send a plain prompt.
+ * @param options - `skillAvailable: false` omits the slash token and sends a
+ *   plain prompt; `focus` appends the user's task scope to the body.
  * @returns text for `conversation.send`.
  */
 export function messageFor(
   id: WorkflowActionId,
   mode: WorkflowMode = 'edit',
-  options: { skillAvailable?: boolean } = {},
+  options: { skillAvailable?: boolean; focus?: string } = {},
 ): string {
-  const body = promptFor(id, mode)
+  const body = `${promptFor(id, mode)}${focusBlockFor(options.focus)}`
   if (options.skillAvailable === false) return body
   return `/${skillNameFor(id)}\n\n${body}`
 }

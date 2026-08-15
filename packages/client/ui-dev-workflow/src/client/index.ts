@@ -1,8 +1,9 @@
 /**
  * Project development workflow toolbox, browser half: contributes the
  * right-column SDLC shortcut strip and a header utility that re-opens it.
- * Clicks send `/dev-<action>` plus mode/task text through conversation.send so
- * host `dsh-tool-skill` injects the bundled skill body; falls back to a plain
+ * Each click opens an inline send-confirmation bar; confirming sends
+ * `/dev-<action>` plus mode/task-scope text through conversation.send so host
+ * `dsh-tool-skill` injects the bundled skill body; falls back to a plain
  * prompt when the skill is absent from the session catalog.
  */
 import type { ConnectionHandle, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
@@ -10,7 +11,7 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import { WorkflowPanel, type WorkflowPanelInjected } from './WorkflowPanel.tsx'
+import { WorkflowPanel, type WorkflowPanelInjected, type WorkflowRunResult } from './WorkflowPanel.tsx'
 import { OpenWorkflowAction, type OpenWorkflowInjected } from './OpenWorkflowAction.tsx'
 import {
   messageFor,
@@ -22,7 +23,12 @@ import { createDevWorkflowStore } from './stores.ts'
 import { en, NS, zh, type DevWorkflowKey } from './locales.ts'
 
 export type { DevWorkflowKey, WorkflowActionId, WorkflowMode }
-export type { WorkflowPanelInjected, WorkflowPanelProps } from './WorkflowPanel.tsx'
+export type {
+  WorkflowPanelInjected,
+  WorkflowPanelProps,
+  WorkflowRunFailureKind,
+  WorkflowRunResult,
+} from './WorkflowPanel.tsx'
 export type { OpenWorkflowInjected, OpenWorkflowActionProps } from './OpenWorkflowAction.tsx'
 export {
   messageFor,
@@ -65,14 +71,14 @@ export function apply(ctx: ClientContext): void {
             return []
           }
         },
-        run: async (id: WorkflowActionId, mode: WorkflowMode) => {
+        run: async (id, mode, focus): Promise<WorkflowRunResult> => {
           const actx = ctx.sessions.scope(sessionId)
           if (actx === undefined) {
-            return `session "${String(sessionId)}" resolved no scope`
+            return { ok: false, kind: 'scope', detail: `session "${String(sessionId)}" resolved no scope` }
           }
           const conversation = actx.get('conversation')
           if (conversation === undefined) {
-            return 'conversation service unavailable'
+            return { ok: false, kind: 'service', detail: 'conversation service unavailable' }
           }
           let skillAvailable = false
           try {
@@ -84,10 +90,14 @@ export function apply(ctx: ClientContext): void {
             skillAvailable = false
           }
           try {
-            await conversation.send(messageFor(id, mode, { skillAvailable }))
-            return null
+            await conversation.send(messageFor(id, mode, { skillAvailable, focus }))
+            return { ok: true }
           } catch (reason: unknown) {
-            return reason instanceof Error ? reason.message : String(reason)
+            return {
+              ok: false,
+              kind: 'send',
+              detail: reason instanceof Error ? reason.message : String(reason),
+            }
           }
         },
       }),
