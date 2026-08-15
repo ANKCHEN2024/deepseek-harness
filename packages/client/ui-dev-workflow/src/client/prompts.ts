@@ -22,6 +22,11 @@ export type WorkflowActionId =
   | 'add-tests'
   | 'a11y-check'
   | 'debug'
+  | 'dead-code'
+  | 'deps-hygiene'
+  | 'temp-cleanup'
+  | 'import-hygiene'
+  | 'debug-residue'
   | 'commit-message'
   | 'pr-description'
   | 'changelog'
@@ -54,18 +59,26 @@ export interface WorkflowGroup {
     | 'group.design'
     | 'group.build'
     | 'group.quality'
+    | 'group.cleanup'
     | 'group.ship'
     | 'group.wrap'
   /** Ordered actions in this group. */
   readonly actions: readonly WorkflowActionId[]
 }
 
-/** Toolbox layout: six SDLC stages (ship then post-delivery wrap-up). */
+/** Toolbox layout: seven SDLC stages (cleanup between quality and ship). */
 export const WORKFLOW_GROUPS: readonly WorkflowGroup[] = [
   { headingKey: 'group.plan', actions: ['requirements', 'user-stories', 'task-breakdown'] },
   { headingKey: 'group.design', actions: ['docs', 'ui-design', 'tech-design', 'api-design', 'data-model'] },
   { headingKey: 'group.build', actions: ['implement', 'refactor', 'optimize'] },
   { headingKey: 'group.quality', actions: ['code-review', 'security-review', 'add-tests', 'a11y-check', 'debug'] },
+  { headingKey: 'group.cleanup', actions: [
+    'dead-code',
+    'deps-hygiene',
+    'temp-cleanup',
+    'import-hygiene',
+    'debug-residue',
+  ] },
   { headingKey: 'group.ship', actions: [
     'commit-message',
     'pr-description',
@@ -225,6 +238,41 @@ export const WORKFLOW_BODIES: Readonly<Record<WorkflowActionId, string>> = {
 3. 补充或更新能锁住该问题的测试
 4. 说明验证步骤
 只分析模式下：只输出根因假设检验步骤与拟修复方案。`,
+
+  'dead-code': `请清理死代码与未使用导出：
+1. 用读取 / 搜索找证据：未引用导出、不可达分支、明显无入口文件
+2. 按风险列出拟删 / 拟收紧项（高：公共 API；低：私有死代码）
+3. 说明如何验证（类型检查、测试、构建）
+4. 不要为「干净」而大范围重构
+若执行模式允许，做最小删除并说明路径；只分析模式下只给清单。`,
+
+  'deps-hygiene': `请整理依赖卫生：
+1. 对照 package.json / 锁文件与真实 import，找未用、重复、过时声明
+2. 对齐本仓库包管理器与 workspace 约定
+3. 列出建议变更（增 / 删 / 移到 devDependencies）与风险
+4. 给出验证命令（install、build、相关测试）
+禁止臆造不存在的包；不确定标为待确认。执行模式允许时可改清单文件。`,
+
+  'temp-cleanup': `请清理临时与构建残留：
+1. 识别可安全删除的产物 / 缓存 / 明确临时文件（优先已 ignore 的路径）
+2. 区分「可自动删」与「需人工确认」
+3. 禁止删除未忽略的源码、密钥、用户数据
+4. 给出删除清单与回滚方式
+只分析模式下只列清单；可改代码时仅删有证据的残留并说明。`,
+
+  'import-hygiene': `请整理 import：
+1. 对齐仓库 lint / format / 路径别名约定
+2. 去重、排序、补类型-only import、去掉未用导入
+3. 按文件列出拟改点；避免无关逻辑改动
+4. 说明如何用现有脚本验证
+执行模式允许时可直接改文件；改动保持最小。`,
+
+  'debug-residue': `请清理调试残留：
+1. 搜索临时 console / debugger / 过期调试注释 / 误提交本地路径
+2. 区分应删、应改为正式日志、应保留的诊断
+3. 按文件列出证据与建议
+4. 验证：相关测试或手工路径仍可用
+不要静默删除有意保留的诊断钩子；不确定先标出。`,
 
   'pr-description': `请撰写 PR 说明（可直接粘贴到 GitHub / GitLab）：
 1. Summary（动机与背景，3 条以内）

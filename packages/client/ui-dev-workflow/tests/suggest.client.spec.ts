@@ -19,7 +19,11 @@ describe('suggestActions', () => {
   })
 
   it('crosses to the next group at a group tail', () => {
-    expect(suggestActions({ recent: ['debug'], pinned: [], mode: 'edit' })[0]).toBe('commit-message')
+    expect(suggestActions({ recent: ['debug'], pinned: [], mode: 'edit' })[0]).toBe('dead-code')
+  })
+
+  it('crosses from cleanup into ship', () => {
+    expect(suggestActions({ recent: ['debug-residue'], pinned: [], mode: 'edit' })[0]).toBe('commit-message')
   })
 
   it('wraps from demo-kit back to requirements', () => {

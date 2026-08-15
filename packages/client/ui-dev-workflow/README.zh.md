@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-Web 项目开发流程工具箱：向 `conversation.details.workflow` 贡献分组快捷按钮条，并向会话标题栏 utilities 贡献重新打开右侧详情列的入口。三十三个 SDLC 动作覆盖规划、设计、开发、质量、交付与交付后总结（项目总结、标准化、产品介绍、组件库、架构回顾、知识库沉淀、演示材料）。每次点击通过会话作用域的 `conversation.send` 发送空白边界的 `/dev-<action>` 加上模式/任务正文，由 host 的 `dsh-tool-skill` 注入 `@deepseek-ai/dsh-skill-dev-workflow` 中对应的随包 skill；若会话目录中没有该 skill，则回退为纯中文提示词。面板可在「只分析」与「可改代码」间切换。本包不注册 Host slash 命令，也不替换按钮条下方的工具详情席位。
+Web 项目开发流程工具箱：向 `conversation.details.workflow` 贡献分组快捷按钮条，并向会话标题栏 utilities 贡献重新打开右侧详情列的入口。三十八个 SDLC 动作覆盖规划、设计、开发、质量、清理、交付与交付后总结（项目总结、标准化、产品介绍、组件库、架构回顾、知识库沉淀、演示材料）。每次点击通过会话作用域的 `conversation.send` 发送空白边界的 `/dev-<action>` 加上模式/任务正文，由 host 的 `dsh-tool-skill` 注入 `@deepseek-ai/dsh-skill-dev-workflow` 中对应的随包 skill；若会话目录中没有该 skill，则回退为纯中文提示词。面板可在「只分析」与「可改代码」间切换。本包不注册 Host slash 命令，也不替换按钮条下方的工具详情席位。
 
 面板挂载时调用 `layout.openDetails()`，并拉取 `skill.list` 为已存在的 skill 打标记。持久化 store（`dsh.dev-workflow.panel.v1`）跨 remount 保存模式、互斥手风琴阶段、最近（最多 8）与收藏（最多 6）。按钮条提供本地搜索、基于扁平 SDLC 顺序的最多三条客户端启发式建议，以及每个动作旁的收藏控件；建议不读 git。样式只用 token；文案走 `dev-workflow` locale。行为由 [Web 项目开发流程工具箱 Agent Note](../../../.agents/notes/implemented/feature/2026-08-15-web-dev-workflow-toolbox.md) 规定。
 

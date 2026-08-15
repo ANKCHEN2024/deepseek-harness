@@ -21,6 +21,11 @@ export type WorkflowSkillId =
   | 'add-tests'
   | 'a11y-check'
   | 'debug'
+  | 'dead-code'
+  | 'deps-hygiene'
+  | 'temp-cleanup'
+  | 'import-hygiene'
+  | 'debug-residue'
   | 'commit-message'
   | 'pr-description'
   | 'changelog'
@@ -96,6 +101,11 @@ export const WORKFLOW_SKILL_IDS: readonly WorkflowSkillId[] = [
   'add-tests',
   'a11y-check',
   'debug',
+  'dead-code',
+  'deps-hygiene',
+  'temp-cleanup',
+  'import-hygiene',
+  'debug-residue',
   'commit-message',
   'pr-description',
   'changelog',
@@ -300,6 +310,61 @@ Align with component-library conventions when present.`),
 3. Add or update a locking test
 4. State verification steps
 Analyze-only mode: hypothesis tests and proposed fix only.`),
+  },
+  'dead-code': {
+    name: skillNameFor('dead-code'),
+    description: 'Remove unused exports and unreachable code with evidence.',
+    content: skillDoc('Dev workflow — dead code', `Clean dead code and unused exports:
+
+1. Gather evidence via read/search: unreferenced exports, unreachable branches, orphan files
+2. List candidates by risk (high: public API; low: private dead code)
+3. State verification (typecheck, tests, build)
+4. No drive-by refactors
+When edits are allowed, delete minimally and name paths; analyze-only: list only.`),
+  },
+  'deps-hygiene': {
+    name: skillNameFor('deps-hygiene'),
+    description: 'Tidy unused, duplicate, or mis-scoped dependencies against real imports.',
+    content: skillDoc('Dev workflow — deps hygiene', `Improve dependency hygiene:
+
+1. Compare package.json / lockfile to real imports for unused, duplicate, or stale declarations
+2. Align with the repo package manager and workspace conventions
+3. Propose add / remove / move-to-devDeps with risks
+4. Give verification commands (install, build, relevant tests)
+Do not invent packages; mark unknowns. When edits are allowed, update manifests.`),
+  },
+  'temp-cleanup': {
+    name: skillNameFor('temp-cleanup'),
+    description: 'Remove safe build artifacts and temporary files without touching source.',
+    content: skillDoc('Dev workflow — temp cleanup', `Clean temporary and build residue:
+
+1. Identify safe artifacts / caches / explicit temp files (prefer ignored paths)
+2. Separate auto-deletable vs needs confirmation
+3. Never delete non-ignored source, secrets, or user data
+4. Provide delete list and rollback notes
+Analyze-only: list only; when edits are allowed, delete only evidenced residue.`),
+  },
+  'import-hygiene': {
+    name: skillNameFor('import-hygiene'),
+    description: 'Sort, dedupe, and type-only-import cleanup matching repo lint rules.',
+    content: skillDoc('Dev workflow — import hygiene', `Tidy imports:
+
+1. Follow repo lint / format / path-alias conventions
+2. Dedupe, sort, add type-only imports, drop unused imports
+3. List per-file changes; avoid unrelated logic edits
+4. Document how to verify with existing scripts
+When edits are allowed, keep the diff minimal.`),
+  },
+  'debug-residue': {
+    name: skillNameFor('debug-residue'),
+    description: 'Remove leftover console, debugger, and temporary debug comments.',
+    content: skillDoc('Dev workflow — debug residue', `Clean debug residue:
+
+1. Search for temporary console / debugger / stale debug comments / local paths
+2. Classify delete vs promote to real logging vs keep
+3. List evidence per file
+4. Verify related tests or manual paths still work
+Do not silently remove intentional diagnostic hooks; mark uncertainties.`),
   },
   'commit-message': {
     name: skillNameFor('commit-message'),
