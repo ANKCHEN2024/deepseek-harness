@@ -5,6 +5,12 @@
 
 /** Toolbox action id; mirrors the client `WorkflowActionId` set. */
 export type WorkflowSkillId =
+  | 'agent-autonomous'
+  | 'agent-investigate'
+  | 'agent-fix-loop'
+  | 'agent-verify-gate'
+  | 'agent-goal-drive'
+  | 'agent-parallel'
   | 'requirements'
   | 'user-stories'
   | 'task-breakdown'
@@ -69,11 +75,15 @@ export function skillNameFor(id: WorkflowSkillId): string {
 
 const TOOL_RULES = `## Tool use
 
-- Inspect the workspace with read/search tools before asserting facts.
-- Prefer existing repository conventions, scripts, and tests.
-- Do not invent files, APIs, or schemas that are not in the tree.
+- Do not assert facts without evidence from read/search/command tools.
+- Prefer repository conventions, scripts, and tests already in the tree.
+- Do not invent files, APIs, or schemas that are not present.
+- Multi-step work: use todo tools when available; check items off as you finish them.
+- Long-running objectives: use goal tools (\`get_goal\` / \`create_goal\` / \`update_goal\`) when available; keep the objective measurable.
+- After a failed command or test, change the hypothesis — do not repeat the same failing invocation.
 - When the user message sets 执行模式 to 只分析, do not create, modify, or delete files and do not run mutating commands.
-- When 执行模式 is 可改代码, make the smallest verified change set and say how to verify.
+- When 执行模式 is 可改代码, make the smallest verified change set and say how to verify with real repo commands.
+- Stop when success criteria are met, or when blocked by missing access/environment — state the blocker clearly.
 - Reply in Chinese unless the user asks otherwise.`
 
 function skillDoc(title: string, procedure: string): string {
@@ -89,6 +99,12 @@ ${procedure}
 
 /** Ordered skill ids (matches the web toolbox action catalog). */
 export const WORKFLOW_SKILL_IDS: readonly WorkflowSkillId[] = [
+  'agent-autonomous',
+  'agent-investigate',
+  'agent-fix-loop',
+  'agent-verify-gate',
+  'agent-goal-drive',
+  'agent-parallel',
   'requirements',
   'user-stories',
   'task-breakdown',
@@ -135,6 +151,79 @@ export const WORKFLOW_SKILL_IDS: readonly WorkflowSkillId[] = [
 
 /** Bundled skill catalog keyed by toolbox action id. */
 export const WORKFLOW_SKILL_ENTRIES: Readonly<Record<WorkflowSkillId, WorkflowSkillEntry>> = {
+  'agent-autonomous': {
+    name: skillNameFor('agent-autonomous'),
+    description: 'Run an evidence-backed autonomous loop: explore, plan, land, verify, report.',
+    content: skillDoc('Dev workflow — agent autonomous', `Run a strong-agent closed loop:
+
+1. Explore with tools; list evidence
+2. State success criteria; use todos when available
+3. Use goal tools for multi-turn objectives when available
+4. Edit mode: small verified landings; analyze-only: plan and file list only
+5. Verify with real repo scripts/tests; retry with new hypotheses on failure
+6. Report outcomes, evidence, verification, residual risks
+Stop when criteria are met or a clear blocker is documented.`),
+  },
+  'agent-investigate': {
+    name: skillNameFor('agent-investigate'),
+    description: 'Evidence-first deep investigation with confidence-graded conclusions.',
+    content: skillDoc('Dev workflow — agent investigate', `Investigate with evidence first:
+
+1. Name the question and unknowns
+2. Cross-check with read/search/commands; cite paths
+3. Separate fact / inference / unverified; give confidence
+4. List actionable fixes without widening scope
+5. Deliver a report: conclusions, evidence chain, next experiments
+Stop when the question has a defensible answer or gaps are listed.`),
+  },
+  'agent-fix-loop': {
+    name: skillNameFor('agent-fix-loop'),
+    description: 'Full fix loop: reproduce, root-cause, minimal fix, lock with tests, re-verify.',
+    content: skillDoc('Dev workflow — agent fix loop', `Run a complete fix loop:
+
+1. Reproduce or locate failure signals
+2. Form testable root-cause hypotheses; prove or disprove with tools
+3. Edit mode: minimal fix; analyze-only: patch-level plan
+4. Add or update a locking test when editing
+5. Re-run verification; return to hypotheses if still red
+Stop when green or blocked on environment/credentials.`),
+  },
+  'agent-verify-gate': {
+    name: skillNameFor('agent-verify-gate'),
+    description: 'Run the repository real quality gates and drive them green when edits are allowed.',
+    content: skillDoc('Dev workflow — agent verify gate', `Drive quality gates green:
+
+1. Discover real check commands from scripts/CI/README
+2. Analyze-only: run safe read-only checks or list commands; no file edits
+3. Edit mode: run → fix → re-run until green or blocked
+4. Fix root causes; never delete tests to go green
+5. Report commands, results, changes, remaining reds
+Stop when critical gates pass or external blockers remain.`),
+  },
+  'agent-goal-drive': {
+    name: skillNameFor('agent-goal-drive'),
+    description: 'Drive multi-turn work through goal and todo tools against measurable success criteria.',
+    content: skillDoc('Dev workflow — agent goal drive', `Drive work with goals:
+
+1. get_goal; create_goal with a measurable objective if none
+2. Split near-term steps with todos when available
+3. Advance per 执行模式 against the goal criteria
+4. complete or blocked the goal with a clear reason
+5. Report goal state, progress, and next-round advice
+Do not replace goal/todo state with empty prose.`),
+  },
+  'agent-parallel': {
+    name: skillNameFor('agent-parallel'),
+    description: 'Split work into parallel vs serial slices; delegate with subagents when available.',
+    content: skillDoc('Dev workflow — agent parallel', `Parallelize deliberately:
+
+1. Map dependencies; mark parallel slices and the critical path
+2. If subagent/delegation tools exist, assign independent slices and merge results
+3. Otherwise produce a clear serial plan with merge points and still tool-loop the main path
+4. Edit mode: land the main-path minimal increment; analyze-only: plan and contracts
+5. Report the parallel graph, slice status, merge risks
+Stop when the plan is executable or the main path is verified.`),
+  },
   requirements: {
     name: skillNameFor('requirements'),
     description: 'Run structured product requirements analysis for the current workspace.',

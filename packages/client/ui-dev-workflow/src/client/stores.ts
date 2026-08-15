@@ -12,12 +12,16 @@ const HEADINGS = new Set(WORKFLOW_GROUPS.map(group => group.headingKey))
 /** Accordion heading key or null when every stage is collapsed. */
 export type DevWorkflowOpenGroup = (typeof WORKFLOW_GROUPS)[number]['headingKey'] | null
 
+/** Active segment in the merged quick-access strip. */
+export type DevWorkflowQuickTab = 'suggest' | 'pinned' | 'recent'
+
 /** Panel-local toolbox preferences persisted across remounts and reloads. */
 export type DevWorkflowState = {
   mode: WorkflowMode
   openGroup: DevWorkflowOpenGroup
   recent: WorkflowActionId[]
   pinned: WorkflowActionId[]
+  quickTab: DevWorkflowQuickTab
 }
 
 /**
@@ -27,6 +31,7 @@ export type DevWorkflowState = {
 type DevWorkflowActions = {
   setMode: (draft: DevWorkflowState, mode: WorkflowMode) => void
   setOpenGroup: (draft: DevWorkflowState, openGroup: DevWorkflowOpenGroup) => void
+  setQuickTab: (draft: DevWorkflowState, tab: DevWorkflowQuickTab) => void
   recordRecent: (draft: DevWorkflowState, id: WorkflowActionId) => void
   togglePin: (draft: DevWorkflowState, id: WorkflowActionId) => void
   clearRecent: (draft: DevWorkflowState) => void
@@ -43,6 +48,7 @@ export function createDevWorkflowStore(): EngineStoreHandle<DevWorkflowState, De
       openGroup: 'group.plan',
       recent: [],
       pinned: [],
+      quickTab: 'suggest',
     }),
     persist: 'dsh.dev-workflow.panel.v1',
     actions: {
@@ -53,6 +59,9 @@ export function createDevWorkflowStore(): EngineStoreHandle<DevWorkflowState, De
           return
         }
         d.openGroup = 'group.plan'
+      },
+      setQuickTab: (d, tab) => {
+        if (tab === 'suggest' || tab === 'pinned' || tab === 'recent') d.quickTab = tab
       },
       recordRecent: (d, id) => {
         if (!VALID.has(id)) return

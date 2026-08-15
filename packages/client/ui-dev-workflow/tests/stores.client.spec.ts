@@ -60,4 +60,31 @@ describe('createDevWorkflowStore', () => {
     a.actions.setMode('analyze')
     expect(b.store.getSnapshot().mode).toBe('edit')
   })
+
+  it('defaults quickTab to suggest and ignores invalid setQuickTab values', () => {
+    const { store, actions } = createDevWorkflowStore().create()
+    expect(store.getSnapshot().quickTab).toBe('suggest')
+    actions.setQuickTab('recent')
+    expect(store.getSnapshot().quickTab).toBe('recent')
+    actions.setQuickTab('not-a-tab' as 'suggest')
+    expect(store.getSnapshot().quickTab).toBe('recent')
+  })
+
+  it('setOpenGroup accepts null and known headings, else resets to plan', () => {
+    const { store, actions } = createDevWorkflowStore().create()
+    actions.setOpenGroup(null)
+    expect(store.getSnapshot().openGroup).toBeNull()
+    actions.setOpenGroup('group.ship')
+    expect(store.getSnapshot().openGroup).toBe('group.ship')
+    actions.setOpenGroup('group.missing' as 'group.plan')
+    expect(store.getSnapshot().openGroup).toBe('group.plan')
+  })
+
+  it('ignores unknown action ids for recent and pin', () => {
+    const { store, actions } = createDevWorkflowStore().create()
+    actions.recordRecent('not-real' as 'docs')
+    expect(store.getSnapshot().recent).toEqual([])
+    actions.togglePin('not-real' as 'docs')
+    expect(store.getSnapshot().pinned).toEqual([])
+  })
 })

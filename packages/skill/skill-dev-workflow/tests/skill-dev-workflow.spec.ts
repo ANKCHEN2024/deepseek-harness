@@ -23,6 +23,7 @@ describe('dsh-skill-dev-workflow', () => {
     const loaded = await ctx.skills.get(skillNameFor('implement'))
     expect(loaded?.content).toContain('Dev workflow — implement')
     expect(loaded?.content).toContain('Tool use')
+    expect(loaded?.content).toContain('goal tools')
     expect(loaded?.resourceBase).toEqual({ kind: 'directory', path: resourcePath })
 
     await fiber.dispose()

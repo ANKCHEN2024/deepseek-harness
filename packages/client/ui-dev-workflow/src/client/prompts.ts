@@ -6,6 +6,12 @@
 
 /** Stable workflow action id. */
 export type WorkflowActionId =
+  | 'agent-autonomous'
+  | 'agent-investigate'
+  | 'agent-fix-loop'
+  | 'agent-verify-gate'
+  | 'agent-goal-drive'
+  | 'agent-parallel'
   | 'requirements'
   | 'user-stories'
   | 'task-breakdown'
@@ -59,6 +65,7 @@ export type WorkflowMode = 'analyze' | 'edit'
 export interface WorkflowGroup {
   /** Locale key for the group heading. */
   readonly headingKey:
+    | 'group.agent'
     | 'group.plan'
     | 'group.design'
     | 'group.build'
@@ -70,8 +77,16 @@ export interface WorkflowGroup {
   readonly actions: readonly WorkflowActionId[]
 }
 
-/** Toolbox layout: seven SDLC stages (cleanup between quality and ship). */
+/** Toolbox layout: agent playbooks first, then SDLC stages through wrap-up. */
 export const WORKFLOW_GROUPS: readonly WorkflowGroup[] = [
+  { headingKey: 'group.agent', actions: [
+    'agent-autonomous',
+    'agent-investigate',
+    'agent-fix-loop',
+    'agent-verify-gate',
+    'agent-goal-drive',
+    'agent-parallel',
+  ] },
   { headingKey: 'group.plan', actions: ['requirements', 'user-stories', 'task-breakdown'] },
   { headingKey: 'group.design', actions: ['docs', 'ui-design', 'tech-design', 'api-design', 'data-model'] },
   { headingKey: 'group.build', actions: ['implement', 'refactor', 'optimize'] },
@@ -127,6 +142,55 @@ export function preambleFor(mode: WorkflowMode): string {
 
 /** Prompt body for each workflow action (without the shared preamble). */
 export const WORKFLOW_BODIES: Readonly<Record<WorkflowActionId, string>> = {
+  'agent-autonomous': `请以强 Agent 方式自主闭环完成本目标（不要只给空泛建议）：
+1. 先用工具探查仓库与相关上下文，列出证据
+2. 写清成功标准与范围；多步时用 todo（若可用）拆解并逐项推进
+3. 长任务用 goal 工具建立或更新目标（若可用），便于多轮续跑
+4. 可改代码：小步落地并每步可验证；只分析：只给计划、拟改文件与验证命令
+5. 用仓库真实脚本/测试做验证；失败则换假设继续，禁止同命令空转
+6. 结束时汇报：做了什么、证据、如何验证、残留风险
+停止条件：成功标准已满足，或证据表明无法在当前权限/环境下完成（明确阻塞原因）。`,
+
+  'agent-investigate': `请做证据优先的深度探查（默认不改代码，除非执行模式允许且探查需要最小探针）：
+1. 明确要回答的问题与未知项
+2. 用读/搜/命令交叉取证；每条结论标注证据路径
+3. 区分事实 / 推断 / 待核实；给出置信度
+4. 若发现可行动修复，列入建议优先级，但不擅自扩大范围
+5. 输出探查报告：结论、证据链、下一步实验
+停止条件：问题已有可辩护结论，或列出无法取证的缺口。`,
+
+  'agent-fix-loop': `请跑完整修复闭环：
+1. 复现或定位失败信号（日志、测试、UI 现象）
+2. 形成可检验的根因假设；用工具证实或证伪
+3. 可改代码：最小修复；只分析：给出补丁级方案与拟改文件
+4. 补或更新能锁住该问题的测试（可改时直接做）
+5. 再跑相关验证；失败则回到假设，不要宣称已修好
+停止条件：验证通过，或阻塞需用户提供环境/凭证。`,
+
+  'agent-verify-gate': `请把仓库质量门禁打绿（或给出打绿路径）：
+1. 从 package 脚本 / CI / README 找出真实检查命令（typecheck、test、lint、build 等）
+2. 只分析：运行只读检查（若安全）或列出应跑命令与预期；不要改文件
+3. 可改代码：跑门禁 → 按失败修复 → 再跑，直到绿或明确阻塞
+4. 优先修根因，避免跳过测试；不要删测试来「变绿」
+5. 汇报：已跑命令、结果、改动、仍红项
+停止条件：关键门禁通过，或剩余失败需外部依赖。`,
+
+  'agent-goal-drive': `请用目标驱动推进当前工作（发挥多轮 Agent 能力）：
+1. 用 get_goal 查看是否已有目标；没有则 create_goal 写清客观可验证的 objective
+2. 用 todo（若可用）拆近端步骤；每完成一步更新 todo / goal
+3. 按执行模式推进实现或只输出计划；持续对照 goal 成功标准
+4. 完成则 update_goal complete；阻塞则 blocked 并写清原因
+5. 汇报 goal 状态、本轮进展、下一轮建议
+不要用空话代替 goal/todo 状态。`,
+
+  'agent-parallel': `请把工作拆成可并行与必须串行的部分：
+1. 先探查依赖，标出可并行切片与关键路径
+2. 若环境提供 subagent/委托类工具：为独立切片委派，并汇总结果
+3. 若无委托能力：给出清晰串行计划与合并点，仍按强 Agent 工具循环推进主路径
+4. 可改代码时落地主路径最小增量；只分析则停在计划与接口契约
+5. 汇报：并行图、各切片状态、合并风险
+停止条件：切片计划可执行，或主路径已验证交付。`,
+
   requirements: `请做需求分析，并输出结构化结果，至少包含：
 1. 目标与成功标准（可度量）
 2. 目标用户与关键使用场景（含反向场景）

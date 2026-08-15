@@ -26,8 +26,8 @@ describe('suggestActions', () => {
     expect(suggestActions({ recent: ['debug-residue'], pinned: [], mode: 'edit' })[0]).toBe('git-status-brief')
   })
 
-  it('wraps from demo-kit back to requirements', () => {
-    expect(suggestActions({ recent: ['demo-kit'], pinned: [], mode: 'edit' })[0]).toBe('requirements')
+  it('wraps from demo-kit back to the first agent playbook', () => {
+    expect(suggestActions({ recent: ['demo-kit'], pinned: [], mode: 'edit' })[0]).toBe('agent-autonomous')
   })
 
   it('dedupes and caps at three', () => {

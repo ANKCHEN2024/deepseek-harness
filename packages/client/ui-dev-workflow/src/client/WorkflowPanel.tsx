@@ -4,12 +4,18 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { WorkflowActionId, WorkflowMode } from './prompts.ts'
 import { skillNameFor, WORKFLOW_GROUPS } from './prompts.ts'
 import { suggestActions } from './suggest.ts'
-import type { createDevWorkflowStore } from './stores.ts'
+import type { createDevWorkflowStore, DevWorkflowQuickTab } from './stores.ts'
 import { NS, type DevWorkflowKey } from './locales.ts'
 import css from './DevWorkflow.module.css'
 
 /** Locale key for each workflow action button label. */
 const ACTION_LABEL: Readonly<Record<WorkflowActionId, DevWorkflowKey>> = {
+  'agent-autonomous': 'action.agent-autonomous',
+  'agent-investigate': 'action.agent-investigate',
+  'agent-fix-loop': 'action.agent-fix-loop',
+  'agent-verify-gate': 'action.agent-verify-gate',
+  'agent-goal-drive': 'action.agent-goal-drive',
+  'agent-parallel': 'action.agent-parallel',
   requirements: 'action.requirements',
   'user-stories': 'action.user-stories',
   'task-breakdown': 'action.task-breakdown',
@@ -56,6 +62,12 @@ const ACTION_LABEL: Readonly<Record<WorkflowActionId, DevWorkflowKey>> = {
 
 /** Locale key for each workflow action one-line hint. */
 const ACTION_HINT: Readonly<Record<WorkflowActionId, DevWorkflowKey>> = {
+  'agent-autonomous': 'hint.agent-autonomous',
+  'agent-investigate': 'hint.agent-investigate',
+  'agent-fix-loop': 'hint.agent-fix-loop',
+  'agent-verify-gate': 'hint.agent-verify-gate',
+  'agent-goal-drive': 'hint.agent-goal-drive',
+  'agent-parallel': 'hint.agent-parallel',
   requirements: 'hint.requirements',
   'user-stories': 'hint.user-stories',
   'task-breakdown': 'hint.task-breakdown',
@@ -128,7 +140,27 @@ export type WorkflowPanelProps =
   & PropsLocale<typeof NS>
 
 /**
- * Grouped SDLC shortcut buttons with search, suggestions, recent, and pins.
+ * Resolve which quick-access tab has content, preferring the user's choice.
+ * @param preferred - persisted tab selection (may be missing on older persist blobs).
+ * @param lengths - current list sizes for suggest / pinned / recent.
+ * @returns the tab to show, or null when every list is empty.
+ */
+export function resolveQuickTab(
+  preferred: DevWorkflowQuickTab | undefined,
+  lengths: Readonly<{ suggest: number; pinned: number; recent: number }>,
+): DevWorkflowQuickTab | null {
+  const choice = preferred === 'pinned' || preferred === 'recent' || preferred === 'suggest'
+    ? preferred
+    : 'suggest'
+  if (lengths[choice] > 0) return choice
+  if (lengths.suggest > 0) return 'suggest'
+  if (lengths.pinned > 0) return 'pinned'
+  if (lengths.recent > 0) return 'recent'
+  return null
+}
+
+/**
+ * Grouped SDLC shortcut buttons with search and a merged quick-access strip.
  * Stage groups use exclusive accordion expand (at most one open).
  * Each click sends a skill gesture (`/dev-<id>`) plus task text through `run`.
  */
@@ -144,6 +176,7 @@ export function WorkflowPanel({
   const openGroup = useStore(s => s.openGroup)
   const recent = useStore(s => s.recent)
   const pinned = useStore(s => s.pinned)
+  const quickTab = useStore(s => s.quickTab)
   const [query, setQuery] = useState('')
   const [skillNames, setSkillNames] = useState<ReadonlySet<string>>(() => new Set())
   const [busy, setBusy] = useState<WorkflowActionId | null>(null)
@@ -179,6 +212,21 @@ export function WorkflowPanel({
     : suggestActions({ recent, pinned, mode })
   const recentShown = searching ? [] : recent.slice(0, 5)
   const pinnedShown = searching ? [] : pinned
+  const activeQuick = searching
+    ? null
+    : resolveQuickTab(quickTab, {
+      suggest: suggestions.length,
+      pinned: pinnedShown.length,
+      recent: recentShown.length,
+    })
+
+  const quickIds = activeQuick === 'suggest'
+    ? suggestions
+    : activeQuick === 'pinned'
+      ? pinnedShown
+      : activeQuick === 'recent'
+        ? recentShown
+        : []
 
   const toggleGroup = (headingKey: WorkflowGroupHeading): void => {
     actions.setOpenGroup(openGroup === headingKey ? null : headingKey)
@@ -194,6 +242,7 @@ export function WorkflowPanel({
   }
 
   const onClick = (id: WorkflowActionId): void => {
+    /* v8 ignore next -- action buttons set disabled while busy */
     if (busy !== null) return
     setBusy(id)
     setError(null)
@@ -213,32 +262,28 @@ export function WorkflowPanel({
     })
   }
 
-  const renderActionButton = (id: WorkflowActionId, opts?: { compact?: boolean }) => {
+  const renderActionButton = (id: WorkflowActionId) => {
     const hasSkill = skillNames.has(skillNameFor(id))
     const isPinned = pinned.includes(id)
+    const title = hasSkill ? `${t(ACTION_HINT[id])} · ${t('skill.badge')}` : t(ACTION_HINT[id])
     return (
       <div key={id} className={css.actionRow}>
         <button
           type="button"
-          className={opts?.compact ? css.compactButton : css.button}
+          className={css.button}
           disabled={busy !== null}
           aria-busy={busy === id || undefined}
-          title={hasSkill ? `${t(ACTION_HINT[id])} · ${t('skill.badge')}` : t(ACTION_HINT[id])}
+          title={title}
           onClick={() => { onClick(id) }}
         >
           {busy === id
             ? <span className={css.buttonLabel}>{t('busy')}</span>
-            : opts?.compact
-              ? <span className={css.buttonLabel}>{t(ACTION_LABEL[id])}</span>
-              : (
-                <>
-                  <span className={css.buttonTop}>
-                    <span className={css.buttonLabel}>{t(ACTION_LABEL[id])}</span>
-                    {hasSkill && <span className={css.skillBadge}>{t('skill.badge')}</span>}
-                  </span>
-                  <span className={css.buttonHint}>{t(ACTION_HINT[id])}</span>
-                </>
-              )}
+            : (
+              <>
+                <span className={css.buttonLabel}>{t(ACTION_LABEL[id])}</span>
+                {hasSkill && <span className={css.skillBadge}>{t('skill.badge')}</span>}
+              </>
+            )}
         </button>
         <button
           type="button"
@@ -271,6 +316,12 @@ export function WorkflowPanel({
     }
   }
 
+  const quickTabs: readonly { id: DevWorkflowQuickTab; label: DevWorkflowKey; count: number }[] = [
+    { id: 'suggest', label: 'section.suggest', count: suggestions.length },
+    { id: 'pinned', label: 'section.pinned', count: pinnedShown.length },
+    { id: 'recent', label: 'section.recent', count: recentShown.length },
+  ]
+
   return (
     <div className={css.panel} data-testid="dev-workflow-panel" data-mode={mode}>
       <div className={css.mode}>
@@ -281,20 +332,20 @@ export function WorkflowPanel({
             className={css.modeButton}
             data-active={mode === 'analyze' || undefined}
             aria-pressed={mode === 'analyze'}
+            title={t('mode.analyze.hint')}
             onClick={() => { actions.setMode('analyze') }}
           >
-            <span>{t('mode.analyze')}</span>
-            <span className={css.modeHint}>{t('mode.analyze.hint')}</span>
+            {t('mode.analyze')}
           </button>
           <button
             type="button"
             className={css.modeButton}
             data-active={mode === 'edit' || undefined}
             aria-pressed={mode === 'edit'}
+            title={t('mode.edit.hint')}
             onClick={() => { actions.setMode('edit') }}
           >
-            <span>{t('mode.edit')}</span>
-            <span className={css.modeHint}>{t('mode.edit.hint')}</span>
+            {t('mode.edit')}
           </button>
         </div>
       </div>
@@ -310,38 +361,51 @@ export function WorkflowPanel({
         />
       </label>
 
-      {!searching && suggestions.length > 0 && (
-        <section className={css.section} data-testid="dev-workflow-suggest">
-          <div className={css.sectionTitle}>{t('section.suggest')}</div>
-          <div className={css.compactGrid}>
-            {suggestions.map(id => renderActionButton(id, { compact: true }))}
-          </div>
-        </section>
-      )}
-
-      {!searching && pinnedShown.length > 0 && (
-        <section className={css.section} data-testid="dev-workflow-pinned">
-          <div className={css.sectionTitle}>{t('section.pinned')}</div>
-          <div className={css.compactGrid}>
-            {pinnedShown.map(id => renderActionButton(id, { compact: true }))}
-          </div>
-        </section>
-      )}
-
-      {!searching && recentShown.length > 0 && (
-        <section className={css.section} data-testid="dev-workflow-recent">
+      {activeQuick !== null && (
+        <section className={css.section} data-testid="dev-workflow-quick">
           <div className={css.sectionHeading}>
-            <div className={css.sectionTitle}>{t('section.recent')}</div>
-            <button
-              type="button"
-              className={css.clearRecent}
-              onClick={() => { actions.clearRecent() }}
-            >
-              {t('recent.clear')}
-            </button>
+            <div className={css.sectionTitle}>{t('section.quick')}</div>
+            {activeQuick === 'recent' && (
+              <button
+                type="button"
+                className={css.clearRecent}
+                onClick={() => { actions.clearRecent() }}
+              >
+                {t('recent.clear')}
+              </button>
+            )}
           </div>
-          <div className={css.compactGrid}>
-            {recentShown.map(id => renderActionButton(id, { compact: true }))}
+          <div
+            className={css.quickTabs}
+            role="tablist"
+            aria-label={t('section.quick')}
+          >
+            {quickTabs.map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                className={css.quickTab}
+                data-active={activeQuick === tab.id || undefined}
+                aria-selected={activeQuick === tab.id}
+                disabled={tab.count === 0}
+                onClick={() => { actions.setQuickTab(tab.id) }}
+              >
+                {t(tab.label)}
+              </button>
+            ))}
+          </div>
+          <div
+            className={css.compactGrid}
+            data-testid={
+              activeQuick === 'suggest'
+                ? 'dev-workflow-suggest'
+                : activeQuick === 'pinned'
+                  ? 'dev-workflow-pinned'
+                  : 'dev-workflow-recent'
+            }
+          >
+            {quickIds.map(id => renderActionButton(id))}
           </div>
         </section>
       )}
