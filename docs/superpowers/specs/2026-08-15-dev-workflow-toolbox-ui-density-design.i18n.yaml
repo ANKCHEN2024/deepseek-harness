@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/superpowers/specs/2026-08-15-dev-workflow-toolbox-ui-density-design.md
+2026-08-15-dev-workflow-toolbox-ui-density-design.md: 7c1dd73615475e9f8ffd49cbba4e5dda8c57f1ca
+2026-08-15-dev-workflow-toolbox-ui-density-design.zh.md: 8126010bf4859254b23d66f2b963178d796b0658

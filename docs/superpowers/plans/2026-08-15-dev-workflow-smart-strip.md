@@ -1,5 +1,7 @@
 # Dev Workflow Smart Strip Implementation Plan
 
+English | [中文](2026-08-15-dev-workflow-smart-strip.zh.md)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add search, recent, pins, client-side suggestions, and a persisted panel store to `@deepseek-ai/dsh-client-ui-dev-workflow` without changing skills or Host commands.

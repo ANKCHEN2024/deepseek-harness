@@ -1,5 +1,7 @@
 # Dev Workflow GitHub Publish Implementation Plan
 
+English | [中文](2026-08-15-dev-workflow-github-publish.zh.md)
+
 > Execute inline. Spec: [2026-08-15-dev-workflow-github-publish-design.md](../specs/2026-08-15-dev-workflow-github-publish-design.md)
 
 **Goal:** Add four ship-group toolbox actions for manual git prep and automatic commit/push / private GitHub publish via skills.

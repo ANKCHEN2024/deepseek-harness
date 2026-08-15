@@ -1,5 +1,7 @@
 # Dev Workflow Cleanup Group Implementation Plan
 
+English | [中文](2026-08-15-dev-workflow-cleanup-group.zh.md)
+
 > **For agentic workers:** Execute inline or via subagent-driven-development. Checkboxes track progress.
 
 **Goal:** Add a `cleanup` stage with five actions between quality and ship in the web toolbox and matching bundled skills.

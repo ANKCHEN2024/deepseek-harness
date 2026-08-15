@@ -1,121 +1,123 @@
-# 设计规格：开发工具箱智能条与交互效率
+# Design Spec: Toolbox Smart Strip and Interaction Efficiency
 
-状态：已实现（见实现计划 docs/superpowers/plans/2026-08-15-dev-workflow-smart-strip.md）
+English | [中文](2026-08-15-dev-workflow-toolbox-smart-strip-design.zh.md)
 
-关联：[Web project development workflow toolbox Agent Note](../../../.agents/notes/implemented/feature/2026-08-15-web-dev-workflow-toolbox.md)
+Status: implemented (see the plan at docs/superpowers/plans/2026-08-15-dev-workflow-smart-strip.md)
 
-## 问题
+Related: [Web project development workflow toolbox Agent Note](../../../.agents/notes/implemented/feature/2026-08-15-web-dev-workflow-toolbox.md)
 
-右侧开发工具箱已有 33 个 SDLC 动作，但面板状态不持久、缺少搜索与「下一步」引导，日常使用成本高。目标是在不接 git、不增 Host 命令、不改 skill 目录的前提下，提升查找效率与阶段引导。
+## Problem
 
-## 决策摘要
+The right-side development toolbox already has 33 SDLC actions, but the panel state is not persisted and search plus next-step guidance are missing, making daily use costly. The goal is to improve lookup efficiency and stage guidance without touching git, adding Host commands, or changing the skill catalog.
 
-在 `@deepseek-ai/dsh-client-ui-dev-workflow` 内增加：过滤搜索、最近使用、收藏钉选、客户端启发式建议条，以及 `defineStore` + `persist` 的面板状态。发送路径仍为 `conversation.send(messageFor(...))`；`@deepseek-ai/dsh-skill-dev-workflow` 不变。
+## Decision summary
 
-## 非目标
+Add to `@deepseek-ai/dsh-client-ui-dev-workflow`: filtered search, recent usage, pin favorites, a client-side heuristic suggestion strip, and a `defineStore` + `persist` panel state. The send path stays `conversation.send(messageFor(...))`; `@deepseek-ai/dsh-skill-dev-workflow` is unchanged.
 
-- 不读 `git status` / diff，不做仓库感知推荐。
-- 不提供自定义 prompt / cordis 配置 / 设置页。
-- 不引入剧本式多步串联 UI。
-- 不新增动作 id，不改 skill 正文。
-- 不替换工具详情栏；建议条仍在 `conversation.details.workflow` 内。
+## Non-goals
 
-## 架构
+- No reading `git status` / diff, no repo-aware recommendations.
+- No custom prompt / cordis config / settings page.
+- No playbook-style multi-step chained UI.
+- No new action ids, no skill body changes.
+- No replacing the tool details column; the suggestion strip stays inside `conversation.details.workflow`.
 
-| 单元 | 职责 | 依赖 |
+## Architecture
+
+| Unit | Responsibility | Dependency |
 |---|---|---|
-| `stores.ts` → `createDevWorkflowStore` | 持久化 mode、openGroup、recent、pinned | `defineStore`（与 workspace view 同模式） |
-| `suggest.ts` → `suggestActions` | 纯函数：由 recent + pinned + mode 产出最多 3 个建议 id | `prompts.ts` 的分组与 id |
-| `WorkflowPanel.tsx` | 搜索 / 建议 / 最近 / 收藏 / 分组手风琴；读写 store | inject `run` / `listSkillNames` / `openPanel` |
-| `index.ts` | register 时挂上 `store: createDevWorkflowStore` | 现有 inject 面不变 |
-| `locales.ts` | 新增文案键（搜索占位、建议、最近、收藏、清空等） | `dev-workflow` 命名空间 |
+| `stores.ts` → `createDevWorkflowStore` | Persist mode, openGroup, recent, pinned | `defineStore` (same pattern as the workspace view) |
+| `suggest.ts` → `suggestActions` | Pure function: produce at most 3 suggested ids from recent + pinned + mode | groups and ids from `prompts.ts` |
+| `WorkflowPanel.tsx` | Search / suggest / recent / pinned / group accordion; reads and writes the store | inject `run` / `listSkillNames` / `openPanel` |
+| `index.ts` | Attach `store: createDevWorkflowStore` at register | existing inject face unchanged |
+| `locales.ts` | New copy keys (search placeholder, suggested, pinned, recent, clear, etc.) | the `dev-workflow` namespace |
 
-技能徽章、busy、error 仍为组件本地状态；不进 store。
+Skill badges, busy, and error stay component-local state; not in the store.
 
-## Store 契约
+## Store contract
 
-`persist` 键：`dsh.dev-workflow.panel.v1`。
+`persist` key: `dsh.dev-workflow.panel.v1`.
 
-状态字段：
+State fields:
 
-| 字段 | 类型 | 默认 | 说明 |
+| Field | Type | Default | Notes |
 |---|---|---|---|
-| `mode` | `'analyze' \| 'edit'` | `'edit'` | 与现网一致 |
-| `openGroup` | 分组 headingKey 或 `null` | `'group.plan'` | 互斥手风琴；`null` 表示全收起 |
-| `recent` | `WorkflowActionId[]` | `[]` | 最近成功发送的动作，最新在前，上限 **8** |
-| `pinned` | `WorkflowActionId[]` | `[]` | 用户钉选，上限 **6**，顺序即展示顺序 |
+| `mode` | `'analyze' \| 'edit'` | `'edit'` | same as current |
+| `openGroup` | a group headingKey or `null` | `'group.plan'` | exclusive accordion; `null` means all collapsed |
+| `recent` | `WorkflowActionId[]` | `[]` | last successfully sent actions, newest first, capped at **8** |
+| `pinned` | `WorkflowActionId[]` | `[]` | user pins, capped at **6**, order is display order |
 
-Actions：
+Actions:
 
 - `setMode(mode)`
 - `setOpenGroup(headingKey | null)`
-- `recordRecent(id)` — 去重后插到队首，截断到 8
-- `togglePin(id)` — 已钉则移除；未钉且未满则追加；已满则 no-op（UI 提示用 locale）
-- `clearRecent()` — 清空最近列表
+- `recordRecent(id)` — dedupe, insert at head, truncate to 8
+- `togglePin(id)` — pinned → remove; unpinned and not full → append; full → no-op (the UI hint uses locale)
+- `clearRecent()` — clear the recent list
 
-Store 是面板级全局（跨 Session 复用同一 persist），不按 `sessionId` 分片：工具箱偏好是用户习惯，不是会话内容。
+The store is panel-level global (one persist shared across Sessions), not sharded by `sessionId`: toolbox preferences are user habits, not session content.
 
-## 建议规则（`suggestActions`）
+## Suggestion rules (`suggestActions`)
 
-输入：`recent`、`pinned`、`mode`。输出：最多 3 个互不重复的 `WorkflowActionId`，且不与「仅展示用」的重复策略冲突（见 UI）。
+Input: `recent`, `pinned`, `mode`. Output: at most 3 distinct `WorkflowActionId`s, without conflicting with the display-only dedupe policy (see UI).
 
-固定阶段邻接（硬编码表，与 `WORKFLOW_GROUPS` 顺序一致）：
+Fixed stage adjacency (hardcoded table, consistent with the `WORKFLOW_GROUPS` order):
 
-1. 若 `recent` 为空：返回 Plan 组前三项 `requirements`、`user-stories`、`task-breakdown`。
-2. 否则取 `recent[0]` 为锚点：
-   - 优先同组内「下一个」动作；
-   - 若已是组内最后一项，取下一组的第一项；
-   - wrap 组末项之后回落到 `requirements`。
-3. 再补一到两个「同组其余高频邻居」：锚点的前一项（若有）、或下一组第二项；不足则用下一组后续动作填满到 3。
-4. 去重；若结果与 `pinned` 前几项完全重叠，仍保留建议（建议区与收藏区可同 id，点击行为相同）。
-5. `mode` 本轮不改变建议集合（预留扩展；analyze/edit 只影响发送 preamble）。
+1. If `recent` is empty: return the first three Plan actions `requirements`, `user-stories`, `task-breakdown`.
+2. Otherwise take `recent[0]` as the anchor:
+   - prefer the next action in the same group;
+   - if it is the last in its group, take the first action of the next group;
+   - after the final group item, wrap back to `requirements`.
+3. Fill one or two more "high-frequency same-group neighbors": the anchor's previous item (if any), or the second item of the next group; otherwise fill to 3 with subsequent actions of the next group.
+4. Dedupe; if the result fully overlaps the first `pinned` items, keep the suggestions (suggest and pinned areas may share ids; clicking behaves the same).
+5. `mode` does not change the suggestion set this round (reserved for extension; analyze/edit only affect the send preamble).
 
-邻接表示例（实现以代码表为准）：`implement` → `refactor` → `optimize` → `code-review`；`debug` → `commit-message`；`pr-description` → `changelog`；`handoff-notes` → `project-summary`。
+Adjacency examples (the code table wins): `implement` → `refactor` → `optimize` → `code-review`; `debug` → `commit-message`; `pr-description` → `changelog`; `handoff-notes` → `project-summary`.
 
-## UI 布局（自上而下）
+## UI layout (top to bottom)
 
-1. **模式切换**（现有 analyze / edit）— 读写 `store.mode`。
-2. **搜索框** — 本地字符串；匹配动作中文标签与 hint（`t(ACTION_LABEL)` / `t(ACTION_HINT)`），大小写不敏感；有查询时隐藏建议/最近/收藏区块，分组内只显示命中动作（空组折叠）；无命中显示「无匹配」状态文案。
-3. **建议** — 标题 + 最多 3 个紧凑按钮；无搜索时显示。
-4. **收藏** — 仅当 `pinned.length > 0`；按钮可二次点击取消钉选（或行内取消控件）；钉满时 `togglePin` no-op 并短暂 status 提示。
-5. **最近** — 最多展示 5 条（store 存 8，UI 截断）；提供「清空」。
-6. **分组手风琴** — 行为与现网一致；`openGroup` 来自 store。每个动作按钮支持：主点击 = 发送；次要控件（如小图钉）= `togglePin`（键盘：按钮 `title` 保留 hint；钉选用独立 button 避免误触发送）。
+1. **Mode switch** (existing analyze / edit) — reads and writes `store.mode`.
+2. **Search box** — local string; matches Chinese action labels and hints (`t(ACTION_LABEL)` / `t(ACTION_HINT)`), case-insensitive; with a query, hide the suggest/recent/pinned sections and show only matching actions inside groups (empty groups collapse); no match shows the 无匹配 empty-state copy.
+3. **Suggested** — heading + at most 3 compact buttons; shown when not searching.
+4. **Pinned** — only when `pinned.length > 0`; a second click unpins (or an inline unpin control); when full, `togglePin` no-ops with a brief status hint.
+5. **Recent** — show at most 5 (store keeps 8, UI truncates); provides 清空.
+6. **Group accordion** — behavior as current; `openGroup` comes from the store. Each action button supports: main click = send; secondary control (e.g. a small pin) = `togglePin` (keyboard: the button `title` keeps the hint; pinning uses a separate button to avoid accidental sends).
 
-视觉：继续只用 `--dsw-*` token；建议/最近用略弱的分区标题，避免第二套「仪表盘」感。
+Visuals: keep using only `--dsw-*` tokens; suggested/recent use slightly weaker section headings to avoid a second dashboard feel.
 
-## 数据流
+## Data flow
 
-1. 面板挂载：`openPanel()`；`listSkillNames()` 填徽章；`useStore` 读 persist 状态。
-2. 用户点动作（建议 / 最近 / 收藏 / 分组）：`run(id, mode)`；成功（返回 `null`）后 `actions.recordRecent(id)`；失败不写入 recent。
-3. 搜索、钉选、展开、模式切换只改 store / 本地 query，不发消息。
+1. Panel mount: `openPanel()`; `listSkillNames()` fills badges; `useStore` reads the persisted state.
+2. User clicks an action (suggest / recent / pinned / group): `run(id, mode)`; on success (returns `null`) call `actions.recordRecent(id)`; failures do not write recent.
+3. Search, pinning, expanding, and mode switching only change the store / local query and send no message.
 
-## 错误处理
+## Error handling
 
-- `run` 失败：现有 error 条；不更新 recent。
-- `listSkillNames` 失败：徽章空；建议与按钮仍可用。
-- persist 损坏 / 非法 id：`init` 或读后过滤未知 id，回落到默认。
+- `run` failure: existing error strip; no recent update.
+- `listSkillNames` failure: empty badges; suggestions and buttons still work.
+- Corrupt persist / invalid ids: filter unknown ids at `init` or after read, fall back to defaults.
 
-## 测试
+## Tests
 
-包内 `tests/`（jsdom 组件 + 纯函数）：
+In-package `tests/` (jsdom components + pure functions):
 
-1. `suggestActions`：空 recent、组中、组末跨组、wrap 末回落、去重上限 3。
-2. store：`recordRecent` 去重与截断；`togglePin` 上限 6；非法 id 过滤（若实现守卫）。
-3. `WorkflowPanel`：搜索过滤可见性；成功发送后 recent 出现；钉选切换；mode/openGroup 经 store 读写（可用 `createDevWorkflowStore().create()` 注入）。
+1. `suggestActions`: empty recent, mid-group, cross-group at a group tail, wrap back at the end, dedupe cap 3.
+2. store: `recordRecent` dedupe and truncation; `togglePin` cap 6; invalid-id filtering (if the guard is implemented).
+3. `WorkflowPanel`: search filter visibility; recent appears after a successful send; pin toggling; mode/openGroup read and write through the store (injectable via `createDevWorkflowStore().create()`).
 
-不要求本轮改 `test:web` 快照，除非组装后的右侧栏文案成为可见回归要求；若 PR 改了默认可见 chrome，按 client AGENTS 补 `DSH_SNAPSHOT=replay` 判定。
+No `test:web` snapshot change is required this round unless the assembled right-column copy becomes a visible regression requirement; if the PR changes default-visible chrome, add the `DSH_SNAPSHOT=replay` judgment per client AGENTS.
 
-## 文档与 Agent Note
+## Docs and Agent Note
 
-实现 PR 须：
+The implementation PR must:
 
-- 更新 `packages/client/ui-dev-workflow/README{,.zh,.i18n.yaml}`（Known Limitations：去掉「mode/accordion 不持久」；写明建议为客户端启发式、无 git）。
-- 新增或更新 Agent Note（扩展现有 toolbox note，或新开 feature note 并交叉链接），描述 store persist 与建议规则。
+- Update `packages/client/ui-dev-workflow/README{,.zh,.i18n.yaml}` (Known Limitations: remove "mode/accordion not persisted"; state that suggestions are client heuristics without git).
+- Add or update an Agent Note (extend the existing toolbox note, or open a new feature note with cross-links) describing store persist and the suggestion rules.
 
-## 验收标准
+## Acceptance criteria
 
-- 刷新页面后 mode、展开阶段、最近、收藏仍在。
-- 无历史时建议为 Plan 三项；有历史时建议跟锚点邻接。
-- 搜索能在 33 个动作中按中文标签/hint 过滤。
-- 点击建议/最近/分组按钮仍走 `/dev-<id>` + preamble（skill 可用时）。
-- 无新 Host 命令；skill 包无改动。
+- After a page refresh, mode, expanded stage, recent, and pinned persist.
+- With no history, suggestions are the three Plan actions; with history, suggestions follow anchor adjacency.
+- Search filters the 33 actions by Chinese label/hint.
+- Clicking suggest/recent/group buttons still goes through `/dev-<id>` + preamble (when the skill is available).
+- No new Host commands; the skill package is unchanged.

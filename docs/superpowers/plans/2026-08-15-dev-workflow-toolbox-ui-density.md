@@ -1,30 +1,32 @@
-# 开发工具箱 UI 密度与快捷区合并 Implementation Plan
+# Toolbox UI Density and Quick-Area Merge Implementation Plan
+
+English | [中文](2026-08-15-dev-workflow-toolbox-ui-density.zh.md)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 收紧开发工具箱视觉密度，并将建议/收藏/最近合并为单一快捷分段区，不改 skill 与发送协议。
+**Goal:** Tighten the development toolbox's visual density and merge suggest/pinned/recent into a single quick segment area, without changing skills or the send protocol.
 
-**Architecture:** 在 `ui-dev-workflow` 内扩展 persist `quickTab`，重排 `WorkflowPanel` 顶部 chrome，CSS Module 收紧间距；动作 hint 仅保留在 `title`。
+**Architecture:** Extend the persisted `quickTab` inside `ui-dev-workflow`, rearrange the top chrome of `WorkflowPanel`, and tighten spacing in the CSS Module; action hints stay only in `title`.
 
-**Tech Stack:** React、CSS Modules、`defineStore` persist、Vitest + Testing Library、中英文 locale。
+**Tech Stack:** React, CSS Modules, `defineStore` persist, Vitest + Testing Library, bilingual locale.
 
 ## Global Constraints
 
-- 仅改 `packages/client/ui-dev-workflow` 与相关 docs/Agent Note；不改 skill 包。
-- 样式只用 `--dsw-alias-*`；产品文案中文键在 `locales.ts`。
-- persist 键保持 `dsh.dev-workflow.panel.v1`。
-- Windows 下 shell 不用 `&&`；用分号或分开调用。
+- Only change `packages/client/ui-dev-workflow` and related docs/Agent Note; no skill-package changes.
+- Styles use only `--dsw-alias-*`; product copy keys live in `locales.ts`.
+- Keep the persist key `dsh.dev-workflow.panel.v1`.
+- On Windows, do not chain shell commands with `&&`; use semicolons or separate calls.
 
 ---
 
 ### Task 1: Store `quickTab`
 
-- [x] store 字段、`setQuickTab`、测试已落地
+- [x] store field, `setQuickTab`, and tests landed
 
-### Task 2: 面板快捷分段 + 单行动作 + 密度 CSS
+### Task 2: Panel quick segments + single-row actions + density CSS
 
-- [x] locale、面板、CSS、测试已落地
+- [x] locales, panel, CSS, and tests landed
 
-### Task 3: 文档同步
+### Task 3: Docs sync
 
-- [x] README / Agent Note / 规格状态已更新
+- [x] README / Agent Note / spec status updated
