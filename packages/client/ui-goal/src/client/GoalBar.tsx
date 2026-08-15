@@ -149,13 +149,11 @@ export function GoalBar({ goal, onEdit, onPause, onResume, onClear, t }: GoalBar
               </button>
             </Tooltip>
           )}
-          {(goal.phase === 'active' || goal.phase === 'paused' || goal.phase === 'blocked') && (
-            <Tooltip label={t('action.resume')} side="bottom" delayMs={500}>
-              <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void runAction(onResume) }} aria-label={t('action.resume')}>
-                <IconPlayOutline16 size={14} />
-              </button>
-            </Tooltip>
-          )}
+          <Tooltip label={t('action.resume')} side="bottom" delayMs={500}>
+            <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void runAction(onResume) }} aria-label={t('action.resume')}>
+              <IconPlayOutline16 size={14} />
+            </button>
+          </Tooltip>
           <Tooltip label={t('action.edit')} side="bottom" delayMs={500}>
             <button
               type="button"

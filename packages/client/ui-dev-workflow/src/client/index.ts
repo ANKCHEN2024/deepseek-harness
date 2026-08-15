@@ -31,7 +31,6 @@ export {
   skillNameFor,
   WORKFLOW_BODIES,
   WORKFLOW_GROUPS,
-  WORKFLOW_PROMPTS,
 } from './prompts.ts'
 
 /** Required services for locale, slots, session-scoped send, skills list, and panel geometry. */

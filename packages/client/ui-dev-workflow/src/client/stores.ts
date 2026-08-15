@@ -60,9 +60,7 @@ export function createDevWorkflowStore(): EngineStoreHandle<DevWorkflowState, De
         }
         d.openGroup = 'group.plan'
       },
-      setQuickTab: (d, tab) => {
-        if (tab === 'suggest' || tab === 'pinned' || tab === 'recent') d.quickTab = tab
-      },
+      setQuickTab: (d, tab) => { d.quickTab = tab },
       recordRecent: (d, id) => {
         if (!VALID.has(id)) return
         d.recent = [id, ...d.recent.filter(x => x !== id)].slice(0, 8)

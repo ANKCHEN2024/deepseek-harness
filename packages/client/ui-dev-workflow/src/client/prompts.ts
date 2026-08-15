@@ -546,8 +546,3 @@ export function messageFor(
   if (options.skillAvailable === false) return body
   return `/${skillNameFor(id)}\n\n${body}`
 }
-
-/** @deprecated Prefer WORKFLOW_BODIES + promptFor(id, mode). */
-export const WORKFLOW_PROMPTS: Readonly<Record<WorkflowActionId, string>> = Object.fromEntries(
-  (Object.keys(WORKFLOW_BODIES) as WorkflowActionId[]).map(id => [id, promptFor(id, 'edit')]),
-) as Readonly<Record<WorkflowActionId, string>>

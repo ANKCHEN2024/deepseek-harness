@@ -61,12 +61,10 @@ describe('createDevWorkflowStore', () => {
     expect(b.store.getSnapshot().mode).toBe('edit')
   })
 
-  it('defaults quickTab to suggest and ignores invalid setQuickTab values', () => {
+  it('defaults quickTab to suggest and sets it', () => {
     const { store, actions } = createDevWorkflowStore().create()
     expect(store.getSnapshot().quickTab).toBe('suggest')
     actions.setQuickTab('recent')
-    expect(store.getSnapshot().quickTab).toBe('recent')
-    actions.setQuickTab('not-a-tab' as 'suggest')
     expect(store.getSnapshot().quickTab).toBe('recent')
   })
 
