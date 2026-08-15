@@ -23,7 +23,7 @@ describe('suggestActions', () => {
   })
 
   it('crosses from cleanup into ship', () => {
-    expect(suggestActions({ recent: ['debug-residue'], pinned: [], mode: 'edit' })[0]).toBe('commit-message')
+    expect(suggestActions({ recent: ['debug-residue'], pinned: [], mode: 'edit' })[0]).toBe('git-status-brief')
   })
 
   it('wraps from demo-kit back to requirements', () => {

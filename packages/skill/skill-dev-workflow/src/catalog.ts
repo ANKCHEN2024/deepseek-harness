@@ -26,7 +26,11 @@ export type WorkflowSkillId =
   | 'temp-cleanup'
   | 'import-hygiene'
   | 'debug-residue'
+  | 'git-status-brief'
   | 'commit-message'
+  | 'commit-draft'
+  | 'commit-push'
+  | 'github-private-publish'
   | 'pr-description'
   | 'changelog'
   | 'release-notes'
@@ -106,7 +110,11 @@ export const WORKFLOW_SKILL_IDS: readonly WorkflowSkillId[] = [
   'temp-cleanup',
   'import-hygiene',
   'debug-residue',
+  'git-status-brief',
   'commit-message',
+  'commit-draft',
+  'commit-push',
+  'github-private-publish',
   'pr-description',
   'changelog',
   'release-notes',
@@ -366,6 +374,17 @@ When edits are allowed, keep the diff minimal.`),
 4. Verify related tests or manual paths still work
 Do not silently remove intentional diagnostic hooks; mark uncertainties.`),
   },
+  'git-status-brief': {
+    name: skillNameFor('git-status-brief'),
+    description: 'Read-only summary of branch, diff, remotes, and next commit advice.',
+    content: skillDoc('Dev workflow — git status brief', `Summarize Git state (read-only):
+
+1. Branch, ahead/behind, dirty or clean
+2. Status and key diffs by file; flag possible secret paths
+3. Remotes (name, host; upstream vs personal)
+4. Advise: keep editing, prepare commit, or ready to commit-push
+Never run commit / push / gh repo create; stay read-only in both modes.`),
+  },
   'commit-message': {
     name: skillNameFor('commit-message'),
     description: 'Draft conventional commit subjects and bodies from the current diff.',
@@ -376,6 +395,41 @@ Do not silently remove intentional diagnostic hooks; mark uncertainties.`),
 3. Optional body: motive, key changes, risks, verification
 4. If the change should be split, propose separate subjects
 Do not include secrets. Analyze-only: text only, no git commit.`),
+  },
+  'commit-draft': {
+    name: skillNameFor('commit-draft'),
+    description: 'Prepare a manual commit package: files, message, and commands without executing.',
+    content: skillDoc('Dev workflow — commit draft', `Prepare a manual commit package (do not execute):
+
+1. Files to include (exclude .env, secrets, unrelated artifacts)
+2. One subject ≤72 chars (Conventional Commits if the repo uses them) plus optional body
+3. Exact commands (add/commit; list push as a separate next step)
+4. Risks and open questions
+Never run mutating git/gh commands in either mode.`),
+  },
+  'commit-push': {
+    name: skillNameFor('commit-push'),
+    description: 'Commit current changes and push to a suitable personal remote.',
+    content: skillDoc('Dev workflow — commit and push', `Commit and push to a personal remote:
+
+1. Read-only status/diff/remotes first; exclude secrets
+2. Analyze-only: print commands, target remote, and risks — no commit/push
+3. Edit mode: create a minimal clear commit, then push
+4. Prefer personal origin / non-upstream; if only upstream exists, stop and suggest adding a personal remote or using private-publish
+5. Report hash, remote, branch, verification
+No force-push to main/master; do not change git config.`),
+  },
+  'github-private-publish': {
+    name: skillNameFor('github-private-publish'),
+    description: 'Publish the workspace to a personal private GitHub repository.',
+    content: skillDoc('Dev workflow — GitHub private publish', `Publish to a personal private GitHub repo:
+
+1. If a personal remote exists, prefer private visibility then push
+2. If none: in edit mode use gh to create --private and push (requires gh auth)
+3. Analyze-only: print gh/git commands, suggested name, private flag, risks — no create/push
+4. Never create a public repo; never push to upstream orgs such as deepseek-ai
+5. Exclude .env/secrets; report private URL and keep-upstream-for-fetch advice
+Do not change global git user; no --force.`),
   },
   'pr-description': {
     name: skillNameFor('pr-description'),

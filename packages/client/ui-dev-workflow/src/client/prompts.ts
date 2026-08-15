@@ -27,7 +27,11 @@ export type WorkflowActionId =
   | 'temp-cleanup'
   | 'import-hygiene'
   | 'debug-residue'
+  | 'git-status-brief'
   | 'commit-message'
+  | 'commit-draft'
+  | 'commit-push'
+  | 'github-private-publish'
   | 'pr-description'
   | 'changelog'
   | 'release-notes'
@@ -80,7 +84,11 @@ export const WORKFLOW_GROUPS: readonly WorkflowGroup[] = [
     'debug-residue',
   ] },
   { headingKey: 'group.ship', actions: [
+    'git-status-brief',
     'commit-message',
+    'commit-draft',
+    'commit-push',
+    'github-private-publish',
     'pr-description',
     'changelog',
     'release-notes',
@@ -273,6 +281,36 @@ export const WORKFLOW_BODIES: Readonly<Record<WorkflowActionId, string>> = {
 3. 按文件列出证据与建议
 4. 验证：相关测试或手工路径仍可用
 不要静默删除有意保留的诊断钩子；不确定先标出。`,
+
+  'git-status-brief': `请汇总当前工作区的 Git 状态（只读）：
+1. 分支名、是否领先/落后 remote、工作区是否干净
+2. git status 与关键 diff 摘要（按文件；标出可能含密钥的路径）
+3. 已配置 remote 一览（名称与 URL 主机；标明 upstream vs 个人）
+4. 建议：继续改、先准备提交、或可直接提交并推送
+不要执行 commit / push / gh repo create；只分析与可改代码模式下本动作都保持只读。`,
+
+  'commit-draft': `请准备一份「手动提交包」（不要执行 commit / push）：
+1. 拟纳入本次提交的文件列表（排除 .env、密钥、无关产物）
+2. 1 条主提交标题（≤72 字符；若仓库用 Conventional Commits 则遵循）与可选正文
+3. 将要执行的命令清单（add / commit；如需再 push 则单独列出并标为下一步）
+4. 风险与待确认项
+本动作无论执行模式如何，都不要运行会改动仓库或远程的命令。`,
+
+  'commit-push': `请把当前改动提交并推送到合适的个人 remote：
+1. 先只读检查 status / diff / remote；排除密钥与无关文件
+2. 若执行模式为只分析：只输出将执行的命令、目标 remote、风险，不要 commit/push
+3. 若执行模式为可改代码：创建最小提交（清晰说明），再 push
+4. 目标 remote 优先个人 origin / 非 upstream；若只有 upstream，停止并说明需先加个人 remote 或改用「发布到私有库」
+5. 完成后给出 commit hash、remote、分支与验证方式
+不要 force-push 到 main/master；不要改 git config。`,
+
+  'github-private-publish': `请把当前工作区发布到「个人 GitHub 私有库」：
+1. 检查是否已有指向用户自己的 remote；有则确认可见性偏好为 private 后 push
+2. 若没有合适 remote：在可改代码模式下用 gh 创建 --private 仓库并 push（需本机 gh 已登录）
+3. 只分析模式：只给出将执行的 gh/git 命令、建议仓库名、私有标志与风险，不创建、不 push
+4. 不要把仓库建成 public；不要推送到 deepseek-ai 等上游组织
+5. 排除 .env 与密钥；完成后给出仓库 URL（私有）与后续建议（如保留 upstream 仅用于拉取）
+不要修改全局 git user；不要 --force。`,
 
   'pr-description': `请撰写 PR 说明（可直接粘贴到 GitHub / GitLab）：
 1. Summary（动机与背景，3 条以内）

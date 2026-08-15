@@ -73,8 +73,8 @@ function mountPanel(overrides: {
 describe('dev-workflow prompts', () => {
   it('covers every grouped action with mode-aware Chinese prompts and skill tokens', () => {
     const ids = WORKFLOW_GROUPS.flatMap(group => group.actions)
-    expect(ids).toHaveLength(38)
-    expect(new Set(ids).size).toBe(38)
+    expect(ids).toHaveLength(42)
+    expect(new Set(ids).size).toBe(42)
     for (const id of ids) {
       const edit = promptFor(id, 'edit')
       const analyze = promptFor(id, 'analyze')
@@ -147,6 +147,8 @@ describe('WorkflowPanel', () => {
     expect(view.queryByText('写提交说明')).toBeNull()
     fireEvent.click(view.getByText('交付'))
     expect(view.getByText('写提交说明')).toBeTruthy()
+    expect(view.getByText('提交并推送')).toBeTruthy()
+    expect(view.getByText('发布到私有库')).toBeTruthy()
     expect(view.getByText('写发布说明')).toBeTruthy()
     fireEvent.click(view.getByText('总结'))
     expect(view.queryByText('写发布说明')).toBeNull()
