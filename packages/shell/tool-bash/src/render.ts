@@ -49,9 +49,12 @@ export function renderResult(
       markers.push(escalationHintMarker('command'))
     }
   }
-  // A command may trap SIGTERM and exit 0 after timeout; still report interruption.
-  if (result.timedOut) markers.push(`[timed out after ${result.timeoutMs}ms]`)
-  if (result.signal !== null) {
+  // Timeout is the authoritative interrupt fact. Windows force-kills often settle
+  // as exit 1 with no signal; pairing that with the timeout marker made models
+  // treat a budget expiry as turn termination and stop working.
+  if (result.timedOut) {
+    markers.push(`[timed out after ${result.timeoutMs}ms]`)
+  } else if (result.signal !== null) {
     markers.push(`[killed by signal: ${result.signal}]`)
   } else if (result.exitCode !== 0) {
     markers.push(`[exit code: ${result.exitCode}]`)

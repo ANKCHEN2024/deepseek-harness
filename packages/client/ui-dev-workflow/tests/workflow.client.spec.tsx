@@ -1,0 +1,157 @@
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { WorkflowPanel } from '../src/client/WorkflowPanel.tsx'
+import { OpenWorkflowAction } from '../src/client/OpenWorkflowAction.tsx'
+import { messageFor, preambleFor, promptFor, skillNameFor, WORKFLOW_GROUPS } from '../src/client/prompts.ts'
+import { zh } from '../src/client/locales.ts'
+
+afterEach(() => {
+  cleanup()
+})
+
+const t = makeTranslate(zh)
+
+/** Shared runtime props the panel does not exercise in these unit tests. */
+function unusedRuntime() {
+  return {
+    SessionProvider: ({ children }: { children: (id: never) => unknown }) => children('s1' as never),
+    sessionId: 's1' as never,
+    useSession: () => { throw new Error('unused') },
+    useSessions: () => { throw new Error('unused') },
+    useWorkspaces: () => { throw new Error('unused') },
+    useProjection: () => undefined,
+    useInput: () => { throw new Error('unused') },
+    inputActions: {
+      setDraft: () => {},
+      addImages: () => true,
+      removeImage: () => {},
+      pruneImages: () => {},
+      submit: () => {},
+    },
+  } as const
+}
+
+describe('dev-workflow prompts', () => {
+  it('covers every grouped action with mode-aware Chinese prompts and skill tokens', () => {
+    const ids = WORKFLOW_GROUPS.flatMap(group => group.actions)
+    expect(ids).toHaveLength(33)
+    expect(new Set(ids).size).toBe(33)
+    for (const id of ids) {
+      const edit = promptFor(id, 'edit')
+      const analyze = promptFor(id, 'analyze')
+      expect(edit).toContain('请先查看当前工作区')
+      expect(edit).toContain('执行模式：可改代码')
+      expect(analyze).toContain('执行模式：只分析')
+      expect(analyze).not.toContain('执行模式：可改代码')
+      expect(edit.length).toBeGreaterThan(80)
+      expect(skillNameFor(id)).toBe(`dev-${id}`)
+      expect(messageFor(id, 'edit')).toMatch(new RegExp(`^/${skillNameFor(id)}\\n\\n`))
+      expect(messageFor(id, 'edit', { skillAvailable: false })).not.toMatch(/^\//)
+    }
+  })
+
+  it('preambleFor switches only the mode constraint line', () => {
+    expect(preambleFor('analyze')).toContain('不要创建、修改或删除任何文件')
+    expect(preambleFor('edit')).toContain('可以直接修改仓库')
+  })
+})
+
+describe('WorkflowPanel', () => {
+  it('renders stage headings, skill badges, and sends the selected action with the active mode', async () => {
+    const run = vi.fn(async () => null)
+    const openPanel = vi.fn()
+    const listSkillNames = vi.fn(async () => ['dev-docs', 'dev-requirements'])
+    const view = render(
+      <WorkflowPanel
+        {...unusedRuntime()}
+        run={run}
+        listSkillNames={listSkillNames}
+        openPanel={openPanel}
+        t={t}
+      />,
+    )
+    expect(openPanel).toHaveBeenCalled()
+    expect(view.getByText('规划')).toBeTruthy()
+    expect(view.getByText('目标、范围、验收标准')).toBeTruthy()
+    await waitFor(() => {
+      expect(view.getAllByText('Skill').length).toBeGreaterThan(0)
+    })
+    expect(view.queryByText('设计 UI')).toBeNull()
+    fireEvent.click(view.getByText('设计'))
+    expect(view.getByText('设计 UI')).toBeTruthy()
+    expect(view.queryByText('目标、范围、验收标准')).toBeNull()
+    fireEvent.click(view.getByText('只分析'))
+    fireEvent.click(view.getByText('写项目文档'))
+    await waitFor(() => {
+      expect(run).toHaveBeenCalledWith('docs', 'analyze')
+    })
+  })
+
+  it('keeps at most one stage open and exposes ship plus wrap-up sets', () => {
+    const view = render(
+      <WorkflowPanel
+        {...unusedRuntime()}
+        run={async () => null}
+        listSkillNames={async () => []}
+        openPanel={() => {}}
+        t={t}
+      />,
+    )
+    expect(view.getByText('需求分析')).toBeTruthy()
+    expect(view.queryByText('写提交说明')).toBeNull()
+    fireEvent.click(view.getByText('交付'))
+    expect(view.queryByText('需求分析')).toBeNull()
+    expect(view.getByText('写提交说明')).toBeTruthy()
+    expect(view.getByText('写发布说明')).toBeTruthy()
+    expect(view.getByText('回滚预案')).toBeTruthy()
+    expect(view.getByText('交接说明')).toBeTruthy()
+    expect(view.getByText('上线验证')).toBeTruthy()
+    fireEvent.click(view.getByText('总结'))
+    expect(view.queryByText('写发布说明')).toBeNull()
+    expect(view.getByText('项目总结')).toBeTruthy()
+    expect(view.getByText('标准化')).toBeTruthy()
+    expect(view.getByText('产品介绍')).toBeTruthy()
+    expect(view.getByText('组件库')).toBeTruthy()
+    expect(view.getByText('架构回顾')).toBeTruthy()
+    expect(view.getByText('知识库沉淀')).toBeTruthy()
+    expect(view.getByText('演示材料')).toBeTruthy()
+    fireEvent.click(view.getByText('总结'))
+    expect(view.queryByText('项目总结')).toBeNull()
+  })
+
+  it('surfaces sendFailed when run returns an English failure line', async () => {
+    const run = vi.fn(async () => 'conversation.send failed: OFFLINE: gone')
+    const view = render(
+      <WorkflowPanel
+        {...unusedRuntime()}
+        run={run}
+        listSkillNames={async () => []}
+        openPanel={() => {}}
+        t={t}
+      />,
+    )
+    fireEvent.click(view.getByText('需求分析'))
+    await waitFor(() => {
+      expect(view.getByText('发送失败')).toBeTruthy()
+    })
+    expect(run).toHaveBeenCalledWith('requirements', 'edit')
+  })
+})
+
+describe('OpenWorkflowAction', () => {
+  it('opens the details panel from the header utility', () => {
+    const openPanel = vi.fn()
+    const view = render(
+      <OpenWorkflowAction
+        {...unusedRuntime()}
+        openPanel={openPanel}
+        t={t}
+      />,
+    )
+    fireEvent.click(view.getByLabelText('打开开发流程工具箱'))
+    expect(openPanel).toHaveBeenCalledTimes(1)
+  })
+})

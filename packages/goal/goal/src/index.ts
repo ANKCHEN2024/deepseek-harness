@@ -303,6 +303,7 @@ export class GoalService extends TypertRemoteService {
   /**
    * Resume and arm a stopped goal, or rearm an active goal after a
    * session-start edge, while its round budget still has capacity.
+   * An already-armed active goal is a no-op success (same revision).
    * @param agent - owning live agent.
    * @param ref - expected current revision.
    * @returns the active view.
@@ -315,8 +316,13 @@ export class GoalService extends TypertRemoteService {
     if (!resumable.includes(current.phase)) {
       throw this.transitionError(current, 'resume', resumable)
     }
+    // Already armed: no-op success so UI / `/goal resume` can re-click without
+    // a spurious invalid-transition rejection after a successful rearm.
     if (current.phase === 'active' && cache.activation === 'armed') {
-      throw new GoalError(`goal "${current.id}" is already active and armed`, 'GOAL_INVALID_TRANSITION')
+      const view = this.view(cache)
+      /* v8 ignore next -- expectCurrent already required a current goal */
+      if (view === undefined) throw new Error('active goal disappeared before resume no-op')
+      return view
     }
     if (cache.state.roundsStarted >= current.maxGoalRounds) {
       throw new GoalError(

@@ -259,11 +259,11 @@ describe('bash tool', () => {
     expect(text(result)).toBe('failing\n[exit code: 3]')
   })
 
-  it('reports timeout kills with both markers (timeout first)', async () => {
+  it('reports timeout kills with only the timeout marker', async () => {
     const ctx = await setup()
     const result = await call(ctx, 'bash', { command: 'sleep 60', description: 'test command', timeoutMs: 100 })
     expect(result.isError).toBe(false)
-    expect(text(result)).toBe('(no output)\n[timed out after 100ms]\n[killed by signal: SIGTERM]')
+    expect(text(result)).toBe('(no output)\n[timed out after 100ms]')
   })
 
   it('reports a timeout even when the command traps the signal and exits 0', async () => {
@@ -880,7 +880,7 @@ describe('renderResult', () => {
 
   it('orders the timeout marker before a kill marker', () => {
     expect(renderResult({ ...base, exitCode: null, signal: 'SIGTERM', timedOut: true }))
-      .toBe('(no output)\n[timed out after 1000ms]\n[killed by signal: SIGTERM]')
+      .toBe('(no output)\n[timed out after 1000ms]')
   })
 
   it('notes truncation with a fallback when the spill path is missing', () => {

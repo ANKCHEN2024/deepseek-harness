@@ -121,6 +121,14 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * A per-tool renderer belongs in the keyed `tool.call.toolview` seat
      * instead; this one is the whole panel.
      */
+    /**
+     * Persistent chrome above the tool-details body in the right column —
+     * project-workflow shortcut strips and similar session-scoped controls.
+     * Empty owner share: entries read session facts through framework hooks
+     * and inject faces. Declared by the details shell so a feature package
+     * can inject without replacing the whole details column.
+     */
+    'conversation.details.workflow': { kind: 'list'; scope: 'session'; owner: DetailsWorkflowOwnerProps }
     'conversation.details.tool': { kind: 'single'; scope: 'session'; owner: DetailsToolOwnerProps }
     /**
      * The composer takeover chain: entries are selector-routed replacements
@@ -721,8 +729,12 @@ export interface DetailsInjected {
   closeDetails: () => void
 }
 
-/** Full details-slot props: selection store, Tool output seat, injected close callback, and locale. */
-export type DetailsSlotProps = PropsRuntime<'details'> & PropsRenderSlots<'conversation.details.tool'>
+/** Empty owner share for details-column workflow list entries. */
+export interface DetailsWorkflowOwnerProps {}
+
+/** Full details-slot props: selection store, workflow list + Tool output seats, injected close callback, and locale. */
+export type DetailsSlotProps = PropsRuntime<'details'>
+  & PropsRenderSlots<'conversation.details.workflow' | 'conversation.details.tool'>
   & PropsStore<ChatStore> & DetailsInjected & PropsLocale<'conversation'>
 
 /** Owner share common to the hero / New-Session Workspace pickers. */

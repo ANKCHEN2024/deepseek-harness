@@ -237,6 +237,10 @@
     - id: ui-jobs
       name: '@deepseek-ai/dsh-client-ui-jobs'
 
+    # Project SDLC workflow toolbox in the right details column.
+    - id: ui-dev-workflow
+      name: '@deepseek-ai/dsh-client-ui-dev-workflow'
+
     # Goal surface: GoalBar in the input dock over the goal session projection.
     - id: ui-goal
       name: '@deepseek-ai/dsh-client-ui-goal'

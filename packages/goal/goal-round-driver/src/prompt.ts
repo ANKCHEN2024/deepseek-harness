@@ -17,7 +17,9 @@ export function renderGoalRoundPrompt(goal: GoalView, round: number): ContentBlo
       + `Round: ${round}/${goal.maxGoalRounds}\n\n`
       + 'Continue working toward the objective in this same session. Treat the current workspace, '
       + 'tool results, and durable session state as authoritative; inspect them instead of assuming '
-      + 'earlier narration is still current. Make concrete progress and verify the result. Before '
+      + 'earlier narration is still current. Make concrete progress and verify the result. Shell '
+      + 'timeouts and non-zero exits are recoverable — retry, change approach, or gather evidence in '
+      + 'this round; do not stop the turn solely because a command failed or timed out. Before '
       + 'claiming completion, gather evidence that the whole objective is achieved, read the current '
       + 'goal, and mark it complete. If work remains, leave the goal active for the next round. Follow '
       + 'the configured goal-tool policy before reporting a blocker.\n'

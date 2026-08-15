@@ -10,7 +10,7 @@
  * through the three framework shares — zero cordis or framework imports,
  * zero self-made hooks.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PropsRenderSlots, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import { computeColumns, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT } from './columns.ts'
@@ -91,21 +91,12 @@ export function AppFrame({
   renderSlot,
 }: AppFrameProps) {
   const panels = useStore(s => s)
-  const detailsSession = useSessions((s) => {
-    const current = s.current
-    return current !== undefined && s.byId[current]?.blank === false ? current : undefined
-  })
+  // Any current Session (including blank "new session" heroes) may show the
+  // details column — the workflow toolbox lives there and must stay reachable
+  // before the first user message. No current Session still forces width 0.
+  const detailsSession = useSessions(s => s.current)
   const frameRef = useRef<HTMLDivElement | null>(null)
   const [viewport, setViewport] = useState(() => window.innerWidth)
-
-  const lastSession = useRef(detailsSession)
-  useLayoutEffect(() => {
-    if (detailsSession === undefined) return
-    if (lastSession.current !== undefined && lastSession.current !== detailsSession) {
-      actions.closeDetails()
-    }
-    lastSession.current = detailsSession
-  }, [actions, detailsSession])
 
   // Track the frame's own box (not the window): rAF-throttled ResizeObserver.
   useEffect(() => {

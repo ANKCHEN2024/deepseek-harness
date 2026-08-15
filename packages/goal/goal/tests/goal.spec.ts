@@ -319,7 +319,12 @@ describe('GoalService mutations', () => {
     expect(() => ctx.goals.create(agent, { objective: 'replacement' })).toThrow(expect.objectContaining({
       code: 'GOAL_ALREADY_EXISTS',
     }))
-    expect(() => ctx.goals.resume(agent, goal)).toThrow(expect.objectContaining({ code: 'GOAL_INVALID_TRANSITION' }))
+    expect(ctx.goals.resume(agent, goal)).toMatchObject({
+      id: goal.id,
+      revision: goal.revision,
+      phase: 'active',
+      activation: 'armed',
+    })
     const paused = ctx.goals.pause(agent, goal)
     expect(() => ctx.goals.pause(agent, paused)).toThrow(expect.objectContaining({ code: 'GOAL_INVALID_TRANSITION' }))
     expect(() => ctx.goals.block(agent, paused, {

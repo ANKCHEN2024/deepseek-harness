@@ -37,7 +37,9 @@ interface Koffi {
 function readUtf16(koffi: Koffi, address: unknown): string {
   const bytes = Buffer.from(koffi.view(address, 32768))
   let end = 0
-  while (end + 1 < bytes.length && bytes[end] !== 0) end += 2
+  // Only the full 0x0000 unit terminates: a character whose UTF-16LE low
+  // byte is 0x00 (e.g. U+5F00 开) is real content, not the NUL terminator.
+  while (end + 1 < bytes.length && (bytes[end] !== 0 || bytes[end + 1] !== 0)) end += 2
   return bytes.toString('utf16le', 0, end)
 }
 
