@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/superpowers/plans/2026-08-15-dev-workflow-smart-strip.md
-2026-08-15-dev-workflow-smart-strip.md: 94d99d63f647e5d7634d7d9f8466cf8d645201fc
-2026-08-15-dev-workflow-smart-strip.zh.md: ede27afdbbf4e5a68e390675c073252fe3dc15d3
+2026-08-15-dev-workflow-smart-strip.md: 76da4bcf59f22ca407283684970608daf7d066ae
+2026-08-15-dev-workflow-smart-strip.zh.md: 367f3a15c693bb8dc339a0988f08e137e5915d3e

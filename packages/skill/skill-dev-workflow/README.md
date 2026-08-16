@@ -8,7 +8,15 @@ Mount the plugin (enabled in the base composition) so agents can load these skil
 
 ## Model Experience
 
+### Dev workflow skill bodies
+
+#### What the model sees
+
 Each skill body is durable instruction text. When the model loads a skill through the `skill` tool or the user (or toolbox) sends `/dev-<action>`, the rendered body is injected for that turn. Skill descriptions appear in the model-facing catalog for model-invocable entries.
+
+#### Token effect
+
+No standing prompt-section or tool-schema cost. A loaded skill adds its body to that turn's injected context; the catalog entry adds one description line per model-invocable skill to the skill listing.
 
 #### KV Cache effect
 

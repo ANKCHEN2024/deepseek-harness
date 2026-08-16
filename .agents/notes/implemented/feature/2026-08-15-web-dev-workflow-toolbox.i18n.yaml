@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-15-web-dev-workflow-toolbox.md
-2026-08-15-web-dev-workflow-toolbox.md: 9dc2ad226a149bbf2c56652a879a8451c3ffed31
-2026-08-15-web-dev-workflow-toolbox.zh.md: bab3cc9ffb6f45677706f45bd217e1faa5619e3b
+2026-08-15-web-dev-workflow-toolbox.md: 1cadb5885ed283af2a8ee1bc80c6f25a0aa19176
+2026-08-15-web-dev-workflow-toolbox.zh.md: 7a54c923708adfa3c6cc10fa703d0b94c192acae

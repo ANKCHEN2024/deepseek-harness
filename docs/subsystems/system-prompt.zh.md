@@ -48,8 +48,9 @@ interface PromptSection {
   readonly name: string
   /**
    * Sections are concatenated in ascending order. Convention: `-100` is the
-   * harness identity, `0` the deployment persona, tool guidance uses 100–199;
-   * other negative orders also render before the persona.
+   * harness identity, `-50` the deployment language directive, `0` the
+   * deployment persona, tool guidance uses 100–199; other negative orders
+   * also render before the persona.
    */
   readonly order: number
   /**

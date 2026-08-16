@@ -26,6 +26,7 @@ export type WorkflowSkillId =
   | 'security-review'
   | 'add-tests'
   | 'a11y-check'
+  | 'visual-check'
   | 'debug'
   | 'dead-code'
   | 'deps-hygiene'
@@ -120,6 +121,7 @@ export const WORKFLOW_SKILL_IDS: readonly WorkflowSkillId[] = [
   'security-review',
   'add-tests',
   'a11y-check',
+  'visual-check',
   'debug',
   'dead-code',
   'deps-hygiene',
@@ -227,36 +229,39 @@ Stop when the plan is executable or the main path is verified.`),
   requirements: {
     name: skillNameFor('requirements'),
     description: 'Run structured product requirements analysis for the current workspace.',
-    content: skillDoc('Dev workflow — requirements', `Produce a structured requirements brief with:
-
+    content: skillDoc('Dev workflow — requirements', `Produce a structured requirements brief and persist it as the pipeline artifact:
 1. Goals and measurable success criteria
 2. Target users and primary / reverse scenarios
 3. In scope / out of scope
 4. Constraints (tech, time, deps, compliance)
 5. Open questions that cannot be inferred from the repo
 6. Acceptance criteria (Given/When/Then or equivalent)
-7. Suggested next stage (plan / design / implement)`),
+7. Suggested next stage (plan / design / implement)
+Artifact: when edits are allowed, write the seven sections to docs/requirements.md as the shared requirements artifact; analyze-only mode outputs the same sections as text.`),
   },
   'user-stories': {
     name: skillNameFor('user-stories'),
     description: 'Write prioritized user stories and acceptance scenarios for the current goal.',
-    content: skillDoc('Dev workflow — user stories', `Write user stories and scenes:
-
-1. Stories as “As a… I want… so that…”, ordered by value
-2. 2–5 acceptance conditions per story
-3. Dependencies, risks, and parallelizable items
-4. MVP vs later iterations
+    content: skillDoc('Dev workflow — user stories', `Write user stories and scenes, continuing the pipeline from the requirements artifact:
+1. Read docs/requirements.md first when it exists; align scope and acceptance criteria with it
+2. Stories as “As a… I want… so that…”, ordered by value
+3. 2–5 acceptance conditions per story
+4. Dependencies, risks, and parallelizable items
+5. MVP vs later iterations
+When edits are allowed, write the stories to docs/user-stories.md and leave the requirements artifact untouched.
 Do not implement unless 执行模式 allows edits and the user asked to implement.`),
   },
   'task-breakdown': {
     name: skillNameFor('task-breakdown'),
     description: 'Break the current goal into an ordered executable task list with dependencies.',
-    content: skillDoc('Dev workflow — task breakdown', `Split the goal into executable tasks:
-
-1. Priority order; each item needs deliverable, deps, and S/M/L complexity
-2. Parallelizable work and the critical path
-3. Suggested implementation order and milestone checkpoints
-4. Files / modules to read first
+    content: skillDoc('Dev workflow — task breakdown', `Split the goal into executable tasks, consuming the pipeline artifacts:
+1. Read docs/requirements.md and docs/user-stories.md first when they exist; every task traces to a story or requirement
+2. Priority order; each item needs deliverable, deps, and S/M/L complexity
+3. Parallelizable work and the critical path
+4. Suggested implementation order and milestone checkpoints
+5. Files / modules to read first
+6. Mirror the task list into the todo tool when available and keep the two consistent
+When edits are allowed, write the breakdown to docs/task-breakdown.md.
 Do not start coding unless 执行模式 allows edits and the user explicitly asked.`),
   },
   docs: {
@@ -274,14 +279,15 @@ Reflect the real tree; read code before writing. When edits are allowed, apply d
   'ui-design': {
     name: skillNameFor('ui-design'),
     description: 'Produce a text UI/UX design for the current product surfaces.',
-    content: skillDoc('Dev workflow — UI design', `Produce a text UI / interaction design (no external design tools):
-
-1. Information architecture and primary views
-2. Key user flows including failure branches
-3. Layout, component hierarchy, and key copy
-4. Empty / loading / error / success / unauthorized states
-5. Accessibility and responsive constraints
-Align with any design system already in the repo.`),
+    content: skillDoc('Dev workflow — UI design', `Produce a UI / interaction design spec from design drafts and the requirements:
+1. Consume design drafts first: read image files (screenshots, Figma exports, wireframes) present in the workspace or attached to the request; extract layout, spacing, color, type, components, and states from them, and mark what each draft leaves unspecified
+2. Information architecture and primary views
+3. Key user flows including failure branches
+4. Layout, component hierarchy, and key copy per view
+5. Empty / loading / error / success / unauthorized states
+6. Design tokens and accessibility constraints (contrast, spacing, responsive, keyboard)
+7. Per-view acceptance criteria that a later implementation check can verify against
+Align with any design system already in the repo. When edits are allowed, write the spec to docs/ui-design.md for the visual check and implementation to reference.`),
   },
   'tech-design': {
     name: skillNameFor('tech-design'),
@@ -323,8 +329,7 @@ Do not invent tables or formats that are not in the tree.`),
     name: skillNameFor('implement'),
     description: 'Implement the current requirement with small verified repository changes.',
     content: skillDoc('Dev workflow — implement', `Implement the current requirement:
-
-1. Read related code, tests, and nearby conventions first
+1. Read related code, tests, and nearby conventions first; when pipeline artifacts exist (docs/requirements.md, docs/user-stories.md, docs/task-breakdown.md, docs/ui-design.md), read them and keep the change aligned with their scope and acceptance criteria
 2. Change in small steps; keep package boundaries and style
 3. Add necessary tests; keep the change reviewable
 4. State verification steps (commands or manual paths)
@@ -389,13 +394,24 @@ Do not perform real attacks. Follow 执行模式 for edits.`),
   'a11y-check': {
     name: skillNameFor('a11y-check'),
     description: 'Check accessibility and usability issues in Web/UI code.',
-    content: skillDoc('Dev workflow — accessibility', `Check accessibility and usability for Web / UI code:
-
-1. Semantics, focus order, keyboard access
-2. Contrast and readability
-3. Form labels, errors, and status announcements
-4. List issues, user impact, and fixes
+    content: skillDoc('Dev workflow — accessibility', `Check accessibility and usability for Web / UI code, runtime first:
+1. When browser or screenshot tools are available, open the target pages and inspect the rendered result (semantics, focus order, keyboard reachability, contrast), keeping evidence where the tool allows
+2. With no runtime tools, fall back to static review of the UI code
+3. Contrast and readability
+4. Form labels, errors, and status announcements
+5. List issues, user impact, and fixes
 Align with component-library conventions when present.`),
+  },
+  'visual-check': {
+    name: skillNameFor('visual-check'),
+    description: 'Compare the implemented UI against the design spec and report prioritized deviations.',
+    content: skillDoc('Dev workflow — visual check', `Verify that the implemented UI matches the design intent:
+1. Read the design spec (docs/ui-design.md) when present; otherwise rebuild the checklist from design drafts (image files) and acceptance criteria
+2. Capture the implemented UI with browser / screenshot tools when available; with none, state exactly which screens and states the user should capture and how to provide them as images
+3. Compare every view and state against the spec: layout, spacing, color, type, component variants, copy, empty / loading / error states
+4. Report a prioritized deviation list (blocker / major / minor): location, expected vs actual, suggested fix per item; this action reports, it does not fix code
+5. Hand accessibility differences spotted during comparison to the accessibility check
+When edits are allowed, write the report to docs/visual-check.md and reference the screenshot paths.`),
   },
   debug: {
     name: skillNameFor('debug'),
@@ -664,13 +680,13 @@ Emit clear Markdown suitable for print / “Save as PDF”. When edits are allow
   'component-library': {
     name: skillNameFor('component-library'),
     description: 'Extract a reusable component inventory and docs from existing UI.',
-    content: skillDoc('Dev workflow — component library', `Extract reusable UI component assets:
-
+    content: skillDoc('Dev workflow — component library', `Extract reusable UI component assets and manage design tokens:
 1. Inventory (name, responsibility, entry path)
 2. Props / variants / empty-loading-error states
-3. Usage examples and anti-patterns
-4. Design tokens / theme / a11y conventions
-5. Gaps and extraction priority
+3. Design tokens: extract color, spacing, type, radius, and shadow tokens from theme / CSS files; list each token's semantic name, raw value, and code location
+4. Usage examples and anti-patterns
+5. A11y conventions
+6. Gaps and extraction priority
 Align with any design system already in the repo. When edits are allowed, write component docs and name paths.`),
   },
   'architecture-retro': {

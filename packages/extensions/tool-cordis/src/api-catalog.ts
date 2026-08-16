@@ -679,7 +679,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote(\'resume\') resume(agent: Agent, ref: GoalRef): GoalView',
-        description: 'Resume and arm a stopped goal, or rearm an active goal after a session-start edge, while its round budget still has capacity.',
+        description: 'Resume and arm a stopped goal, or rearm an active goal after a session-start edge, while its round budget still has capacity. An already-armed active goal is a no-op success (same revision).',
         parameters: [{ name: 'agent', description: 'owning live agent.' }, { name: 'ref', description: 'expected current revision.' }],
         returns: 'the active view.',
       },
@@ -960,6 +960,31 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Select whether plan mode should be active. Between turns the method appends the change immediately because no in-turn pre-step will run until another prompt starts a turn. The open-turn fold is the idle signal: agent status stays `running` through post-turn checkpointing, when no further in-turn pre-step runs. During an open turn the selection remains pending until the next accepted in-turn pre-step. Repeated selection of the current or already-pending state is a no-op.',
         parameters: [{ name: 'agent', description: 'The agent to switch.' }, { name: 'active', description: 'Whether plan mode should be active.' }],
         returns: 'what happened: `committed` (logged now), `queued` (awaiting the next accepted in-turn pre-step), `cancelled` (an opposite pending selection was cleared; the logged state already matches), or `noop` (already in that state).',
+      },
+    ],
+  },
+  {
+    key: 'ports',
+    summary: 'The port-lease registry.',
+    description: 'The port-lease registry. Startup waits for `storageDomain`, opens the `ports` domain, and only then serves allocations; the persistence dependency is mandatory so an unavailable peer can never be mistaken for an empty lease set. All allocation and release operations serialize on one in-process write chain: the probe-then-persist pair of two concurrent allocations can therefore never hand out the same port.',
+    methods: [
+      {
+        signature: 'allocate(request: AllocatePortRequest): Promise<AllocatePortResult>',
+        description: 'Allocate `count` ports for one (scope, purpose) pair. A pair that already holds a durable lease returns that port unchanged — the leased port is authoritative for its purpose, and the result only flags whether a process currently listens on it. New leases probe the OS first (skipping every already-leased port), then persist before returning.',
+        parameters: [{ name: 'request', description: 'The scope, purpose, optional count, and optional preferred ports.' }],
+        returns: 'the allocation outcome after durability.',
+      },
+      {
+        signature: 'release(port: number): Promise<boolean>',
+        description: 'Release every lease that holds `port`, whatever its scope or purpose.',
+        parameters: [{ name: 'port', description: 'The leased port to free.' }],
+        returns: '`true` when at least one lease was deleted.',
+      },
+      {
+        signature: 'leases(): readonly PortLease[]',
+        description: 'Synchronous snapshot of every durable lease. Reads the domain\'s in-memory table; no persistence reads.',
+        parameters: [],
+        returns: 'the lease records in storage order.',
       },
     ],
   },
@@ -2650,6 +2675,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AgentStatus = \'idle\' | \'running\';',
   },
   {
+    name: 'AllocatedPort',
+    declaration: 'export interface AllocatedPort {\n    readonly port: number;\n    readonly purpose: string;\n    readonly reused: boolean;\n    readonly inUse: boolean;\n}',
+  },
+  {
+    name: 'AllocatePortRequest',
+    declaration: 'export interface AllocatePortRequest {\n    readonly scope: PortScope;\n    readonly purpose: string;\n    readonly count?: number;\n    readonly preferred?: readonly number[];\n}',
+  },
+  {
+    name: 'AllocatePortResult',
+    declaration: 'export interface AllocatePortResult {\n    readonly scope: PortScope;\n    readonly ports: readonly AllocatedPort[];\n}',
+  },
+  {
     name: 'ApprovalOutcome',
     declaration: 'export type ApprovalOutcome = \'allowed-once\' | \'rejected\' | \'cancelled\' | \'unavailable\';',
   },
@@ -3476,6 +3513,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PermissionSelect',
     declaration: 'export interface PermissionSelect {\n    options: PresetOption[];\n    currentValue: string;\n}',
+  },
+  {
+    name: 'PortLease',
+    declaration: 'export interface PortLease {\n    readonly scope: PortScope;\n    readonly purpose: string;\n    readonly port: number;\n    readonly createdAt: string;\n}',
+  },
+  {
+    name: 'PortScope',
+    declaration: 'export type PortScope = {\n    readonly kind: \'global\';\n} | {\n    readonly kind: \'workspace\';\n    readonly workspaceId: WorkspaceId;\n};',
   },
   {
     name: 'PostToolDecision',

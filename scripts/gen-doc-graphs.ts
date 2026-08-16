@@ -211,7 +211,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'storage-domain',
     title: 'Domain data facility',
     mode: 'core',
-    consumers: ['workspace', 'message-feedback'],
+    consumers: ['workspace', 'message-feedback', 'ports'],
     note: 'Waits for every configured backend, then publishes the domain form as one lifecycle-bound service for typed durable state.',
   },
   {
@@ -228,6 +228,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'core',
     consumers: ['apiproxy'],
     note: 'Owns WorkspaceId-branded records over the domain facility; stable sessionIds accounts drive Host RPC and GUI projections.',
+  },
+  {
+    key: 'ports',
+    pkg: 'ports',
+    title: 'Port lease registry',
+    mode: 'core',
+    consumers: ['tool-ports'],
+    note: 'Owns durable (scope, purpose) port leases over the domain facility: registry-global uniqueness, lease-authoritative reuse, and loopback probing.',
   },
   {
     key: 'sessionQuery',

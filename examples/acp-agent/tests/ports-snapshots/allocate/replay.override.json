@@ -1,0 +1,32 @@
+[
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "tool-call" },
+      { "type": "tool-call-delta", "index": 0, "id": "call_ports_allocate_first", "name": "allocate_port", "argumentsDelta": "{\"purpose\":\"dev-server\"}" },
+      { "type": "block-end", "index": 0, "block": { "type": "tool-call", "id": "call_ports_allocate_first", "name": "allocate_port", "arguments": "{\"purpose\":\"dev-server\"}" } },
+      { "type": "usage", "usage": { "inputTokens": 20, "outputTokens": 8 } },
+      { "type": "finish", "reason": { "kind": "tool-calls" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "tool-call" },
+      { "type": "tool-call-delta", "index": 0, "id": "call_ports_allocate_second", "name": "allocate_port", "argumentsDelta": "{\"purpose\":\"dev-server\"}" },
+      { "type": "block-end", "index": 0, "block": { "type": "tool-call", "id": "call_ports_allocate_second", "name": "allocate_port", "arguments": "{\"purpose\":\"dev-server\"}" } },
+      { "type": "usage", "usage": { "inputTokens": 30, "outputTokens": 8 } },
+      { "type": "finish", "reason": { "kind": "tool-calls" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "text" },
+      { "type": "text-delta", "index": 0, "text": "PORTS_OK" },
+      { "type": "block-end", "index": 0, "block": { "type": "text", "text": "PORTS_OK" } },
+      { "type": "usage", "usage": { "inputTokens": 40, "outputTokens": 2 } },
+      { "type": "finish", "reason": { "kind": "stop" } }
+    ]
+  }
+]

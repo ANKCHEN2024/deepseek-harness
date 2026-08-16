@@ -1,0 +1,14 @@
+{
+  "steps": [
+    { "op": "initialize" },
+    { "op": "newSession" },
+    {
+      "op": "promptAndWaitForAgentMessage",
+      "text": "Unfinished project work remains: finish the ACP auto-dev snapshot objective in this workspace.",
+      "waitForText": "NOTED"
+    },
+    { "op": "prompt", "text": "/auto-dev on" },
+    { "op": "waitForGoalPhase", "phase": "active", "timeoutMs": 30000 },
+    { "op": "waitForGoalPhase", "phase": "complete", "timeoutMs": 60000 }
+  ]
+}

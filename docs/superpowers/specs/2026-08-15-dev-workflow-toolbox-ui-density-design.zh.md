@@ -74,4 +74,4 @@ persist 键：`dsh.dev-workflow.panel.v1`（不变）。
 
 ## 文档
 
-- 本规格；同变更更新 Agent Note（或短 feature note 交叉链接）与 `packages/client/ui-dev-workflow/README(.zh).md` 一句布局描述。
+- 本规格；同变更更新 Agent Note（或短 feature note 交叉链接）与 `packages/client/ui-dev-workflow/README.md` and `README.zh.md` 一句布局描述。

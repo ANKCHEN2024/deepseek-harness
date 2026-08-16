@@ -74,4 +74,4 @@ While searching (`query.trim()` non-empty) hide the whole quick section (consist
 
 ## Docs
 
-- This spec; the same change updates the Agent Note (or a short cross-linked feature note) and a one-line layout description in `packages/client/ui-dev-workflow/README(.zh).md`.
+- This spec; the same change updates the Agent Note (or a short cross-linked feature note) and a one-line layout description in `packages/client/ui-dev-workflow/README.md` and `README.zh.md`.

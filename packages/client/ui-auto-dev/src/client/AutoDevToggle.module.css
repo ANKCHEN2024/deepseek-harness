@@ -1,0 +1,43 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--dsw-border-subtle, rgba(0, 0, 0, 0.12));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-fg-muted, #666);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  color: var(--dsw-fg, #222);
+  border-color: var(--dsw-border, rgba(0, 0, 0, 0.2));
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.on {
+  color: var(--dsw-accent, #0b6bcb);
+  border-color: color-mix(in srgb, var(--dsw-accent, #0b6bcb) 45%, transparent);
+  background: color-mix(in srgb, var(--dsw-accent, #0b6bcb) 10%, transparent);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+.on .dot {
+  opacity: 1;
+}

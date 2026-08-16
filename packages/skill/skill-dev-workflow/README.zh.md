@@ -8,7 +8,15 @@
 
 ## 模型体验
 
+### 开发流程 skill 正文
+
+#### 模型看到什么
+
 每个 skill 正文是持久指令文本。模型通过 `skill` 工具加载，或用户（含工具箱）发送 `/dev-<action>` 时，渲染后的正文会注入该回合。model-invocable 条目的描述会出现在面向模型的目录中。
+
+#### Token 影响
+
+无常驻提示词分节或工具 schema 成本。加载 skill 会把正文加入该回合的注入上下文；目录条目为每个 model-invocable skill 在 skill 列表中增加一行描述。
 
 #### KV Cache effect
 

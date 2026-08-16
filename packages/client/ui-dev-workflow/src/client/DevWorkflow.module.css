@@ -7,12 +7,15 @@
 
 .mode {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   min-width: 0;
 }
 
 .modeLabel {
+  flex: none;
   font-size: 12px;
   line-height: 18px;
   font-weight: 500;
@@ -21,8 +24,10 @@
 
 .modeRow {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, auto);
   gap: 4px;
+  flex: none;
+  min-width: 0;
 }
 
 .modeButton {
@@ -47,6 +52,7 @@
 }
 
 .search {
+  position: relative;
   display: block;
   min-width: 0;
 }
@@ -55,7 +61,7 @@
   box-sizing: border-box;
   width: 100%;
   min-height: 32px;
-  padding: 6px 10px;
+  padding: 6px 32px 6px 10px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   background: var(--dsw-alias-bg-layer-2);
@@ -65,6 +71,40 @@
 }
 
 .searchInput::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* One consistent in-box clear affordance across engines. */
+.searchInput::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.searchClear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.searchClear:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.searchCount {
+  font-size: 11px;
+  line-height: 16px;
   color: var(--dsw-alias-label-tertiary);
 }
 
@@ -172,14 +212,15 @@
   display: grid;
   place-items: center;
   width: 28px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: none;
   border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-2);
+  background: transparent;
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
 }
 
-.pin:hover:not(:disabled) {
+.pin:hover:not(:disabled),
+.pin:focus-visible {
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-interactive-bg-hover);
 }
@@ -207,8 +248,6 @@
 }
 
 .hintStatus {
-  font-size: 12px;
-  line-height: 18px;
   color: var(--dsw-alias-label-secondary);
 }
 
@@ -231,6 +270,11 @@
   color: inherit;
   cursor: pointer;
   text-align: left;
+}
+
+/* Searching auto-expands every stage, so the accordion toggle is inert. */
+.headingRow:disabled {
+  cursor: default;
 }
 
 .heading {
@@ -488,9 +532,34 @@
   min-width: 0;
 }
 
+/* Transient feedback (sent / pin-full) floats at the visible bottom edge of
+   the panel while it is scrolled, then scrolls away with the panel's end. */
+.toast {
+  position: sticky;
+  bottom: 8px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.hintStatus,
 .statusSent {
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: var(--dsw-shadow-lv2);
+  overflow-wrap: anywhere;
   font-size: 12px;
   line-height: 18px;
+}
+
+.statusSent {
   color: var(--dsw-alias-state-success-primary);
 }
 

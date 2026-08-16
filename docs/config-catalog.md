@@ -39,7 +39,8 @@ Source: [`packages/acp/acp/src/index.ts:70`](../packages/acp/acp/src/index.ts)
 /**
  * App config: the swappable per-deployment values. `provider` and `model` configure
  * each agent the ACP bridge creates at `session/new`; `persona` is the
- * deployment persona (forwarded to the system-prompt plugin); `toolOrder` is
+ * deployment persona and `language` the deployment language directive (both
+ * forwarded to the system-prompt plugin); `toolOrder` is
  * the explicit model-facing tool order (forwarded to the system-prompt plugin);
  * `tools` is the tool registry's config (its presentation `mode`, forwarded
  * through agent-spine-demo); `persistenceRoot` is the JSONL backend's directory.
@@ -53,6 +54,8 @@ export interface Config {
   maxParallelToolCalls?: number
   /** Deployment persona (the system-prompt plugin's `persona` config). */
   persona?: string
+  /** Deployment language directive (the system-prompt plugin's `language` config; see dsh-system-prompt). */
+  language?: string
   /** Explicit model-facing tool order (the system-prompt plugin's `toolOrder` config; see dsh-system-prompt). */
   toolOrder?: string[]
   /** Tool-registry config — its presentation `mode` (forwarded through agent-spine-demo; see dsh-tools). */
@@ -84,7 +87,7 @@ export interface Config {
 
 Depends on: [`agentCore`](../packages/examples/agent-spine-demo/src/index.ts) · [`JsonlCompression`](../packages/session/session-persistence-jsonl/src/index.ts) · [`ToolsConfig`](#deepseek-aidsh-tools)
 
-Source: [`packages/examples/acp-demo/src/index.ts:39`](../packages/examples/acp-demo/src/index.ts)
+Source: [`packages/examples/acp-demo/src/index.ts:40`](../packages/examples/acp-demo/src/index.ts)
 
 <a id="deepseek-aidsh-agent-default-model"></a>
 
@@ -211,9 +214,10 @@ Source: [`packages/preset/agent-presets/src/preset.ts:52`](../packages/preset/ag
  * Bundle config: each field forwarded verbatim to the child that owns it —
  * `agents` to the agent loop (an app that pre-creates no agents, like the ACP
  * bridge, simply omits it), `includeHarnessIdentity`, `includeRuntimeContext`,
- * `persona`, and `toolOrder` to the system-prompt plugin (the fixed opener,
- * dynamic-context policy, deployment persona, and explicit model-facing tool
- * order), the `tools` object to the tool registry (its presentation `mode`),
+ * `persona`, `language`, and `toolOrder` to the system-prompt plugin (the
+ * fixed opener, dynamic-context policy, deployment persona, deployment
+ * language directive, and explicit model-facing tool order), the `tools`
+ * object to the tool registry (its presentation `mode`),
  * `dshHome` to bash environment and local skill discovery, `sessionTitle` to
  * the fallback title service, `skills` to the
  * skill registry/local provider/tool consumer, `workspaceContext` to the
@@ -241,6 +245,8 @@ export interface Config {
   includeRuntimeContext?: SystemPromptConfig['includeRuntimeContext']
   /** The deployment persona (see dsh-system-prompt's `Config`). */
   persona?: SystemPromptConfig['persona']
+  /** The deployment language directive (see dsh-system-prompt's `Config`). */
+  language?: SystemPromptConfig['language']
   /** The explicit model-facing tool order (see dsh-system-prompt's `Config`). */
   toolOrder?: SystemPromptConfig['toolOrder']
   /** The tool registry's config — its presentation `mode` (see dsh-tools' `Config`). */
@@ -292,7 +298,7 @@ export interface GoalConfig {
 
 Depends on: [`AgentLoopConfig`](#deepseek-aidsh-agent-loop) · [`GoalDomainConfig`](#deepseek-aidsh-goal) · [`InvariantConfig`](#deepseek-aidsh-invariants) · [`JobsConfig`](#deepseek-aidsh-jobs-local) · [`SessionTitleConfig`](#deepseek-aidsh-session-title) · [`SkillFileSystem`](../packages/skill/skill-filesystem/src/index.ts) · [`SkillRegistryConfig`](#deepseek-aidsh-skill) · [`SystemPromptConfig`](#deepseek-aidsh-system-prompt) · [`toolBash`](../packages/shell/tool-bash/src/index.ts) · [`toolGoal`](../packages/goal/tool-goal/src/index.ts) · [`toolJobs`](../packages/jobs/tool-jobs/src/index.ts) · [`ToolsConfig`](#deepseek-aidsh-tools) · [`toolSkill`](../packages/skill/tool-skill/src/index.ts) · [`workspaceContext`](../packages/context/agent-instructions/src/index.ts)
 
-Source: [`packages/examples/agent-spine-demo/src/index.ts:92`](../packages/examples/agent-spine-demo/src/index.ts)
+Source: [`packages/examples/agent-spine-demo/src/index.ts:93`](../packages/examples/agent-spine-demo/src/index.ts)
 
 <a id="deepseek-aidsh-agent-tool-presentation"></a>
 
@@ -1351,10 +1357,17 @@ export interface Config {
   complete?: boolean
   /** Suppress dynamic runtime-context snapshots for this persona's agent scope. */
   includeRuntimeContext?: boolean
+  /**
+   * Conversation language for this agent scope, rendered as the
+   * `deployment:language` directive. Omitted keeps the deployment directive;
+   * `''` shadows it away entirely; any other value replaces it with the same
+   * fixed directive sentence the registry renders.
+   */
+  language?: string
 }
 ```
 
-Source: [`packages/preset/persona/src/index.ts:34`](../packages/preset/persona/src/index.ts)
+Source: [`packages/preset/persona/src/index.ts:43`](../packages/preset/persona/src/index.ts)
 
 <a id="deepseek-aidsh-plan-mode"></a>
 
@@ -1371,6 +1384,36 @@ export interface PlanModeConfig {
 ```
 
 Source: [`packages/plan/plan-mode/src/index.ts:70`](../packages/plan/plan-mode/src/index.ts)
+
+<a id="deepseek-aidsh-ports"></a>
+
+## `@deepseek-ai/dsh-ports`
+
+Requires: `storageDomain`
+
+```ts config-catalog
+/**
+ * Registry config: the probe range, reserved defaults, and per-request
+ * bounds. Every field is optional for direct construction; the Loader's
+ * schemastery schema fills the defaults before the constructor runs.
+ */
+export interface PortsRegistryConfig {
+  /** First port of the automatic scan range. Defaults to 4000. */
+  minPort?: number
+  /** Last port of the automatic scan range. Defaults to 49999. */
+  maxPort?: number
+  /** Ports the automatic scan skips (explicit `preferred` ports override this). */
+  avoidPorts?: number[]
+  /** Maximum length of one allocation purpose. Defaults to 64. */
+  maxPurposeChars?: number
+  /** Maximum ports one allocation may request. Defaults to 4. */
+  maxCountPerAllocate?: number
+  /** Bound on one probe bind. Defaults to 1000. */
+  probeTimeoutMs?: number
+}
+```
+
+Source: [`packages/ports/ports/src/index.ts:78`](../packages/ports/ports/src/index.ts)
 
 <a id="deepseek-aidsh-pwsh-local"></a>
 
@@ -2234,6 +2277,13 @@ export interface Config {
    */
   persona?: string
   /**
+   * Deployment-wide conversation language, rendered as the order-−50
+   * `deployment:language` directive covering both visible replies and
+   * internal reasoning. A scoped section with the same name shadows it.
+   * Empty means no directive; the section drops at render.
+   */
+  language?: string
+  /**
    * Model-facing tool names in order, with {@link TOOL_ORDER_REST} exactly once.
    * Invalid fields fail at load and unknown names fail at assembly; known names
    * hidden in one scope may be absent there. Omitted means lexicographic order.
@@ -2242,7 +2292,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/core/system-prompt/src/index.ts:186`](../packages/core/system-prompt/src/index.ts)
+Source: [`packages/core/system-prompt/src/index.ts:209`](../packages/core/system-prompt/src/index.ts)
 
 <a id="deepseek-aidsh-terminal-bash"></a>
 
@@ -2498,6 +2548,24 @@ export interface Config {
 ```
 
 Source: [`packages/lsp/tool-lsp/src/index.ts:58`](../packages/lsp/tool-lsp/src/index.ts)
+
+<a id="deepseek-aidsh-tool-ports"></a>
+
+## `@deepseek-ai/dsh-tool-ports`
+
+Requires: `tools` · `systemPrompt` · `ports`
+
+```ts config-catalog
+/** Plugin config: per-tool cooperative timeout budgets. */
+export interface Config {
+  /** Cooperative timeout budget (ms) for `allocate_port`. Defaults to 30000. */
+  allocateTimeoutMs?: number
+  /** Cooperative timeout budget (ms) for `release_port`. Defaults to 10000. */
+  releaseTimeoutMs?: number
+}
+```
+
+Source: [`packages/ports/tool-ports/src/index.ts:45`](../packages/ports/tool-ports/src/index.ts)
 
 <a id="deepseek-aidsh-tool-pwsh"></a>
 
@@ -3036,6 +3104,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-client-ui-conversation` ([`packages/client/ui-conversation/src/index.ts`](../packages/client/ui-conversation/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-cordis` ([`packages/extensions/ui-cordis/src/index.ts`](../packages/extensions/ui-cordis/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-deliverables` — requires `systemPrompt` ([`packages/client/ui-deliverables/src/index.ts`](../packages/client/ui-deliverables/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-dev-workflow` ([`packages/client/ui-dev-workflow/src/index.ts`](../packages/client/ui-dev-workflow/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-directory-picker-browse` ([`packages/client/ui-directory-picker-browse/src/index.ts`](../packages/client/ui-directory-picker-browse/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-directory-picker-native` ([`packages/client/ui-directory-picker-native/src/index.ts`](../packages/client/ui-directory-picker-native/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-goal` ([`packages/client/ui-goal/src/index.ts`](../packages/client/ui-goal/src/index.ts))
@@ -3067,6 +3136,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-cordis-client-runner` ([`packages/extensions/cordis-client-runner/src/index.ts`](../packages/extensions/cordis-client-runner/src/index.ts))
 - `@deepseek-ai/dsh-fs-e2b` — requires `e2b` ([`packages/e2b/fs-e2b/src/index.ts`](../packages/e2b/fs-e2b/src/index.ts))
 - `@deepseek-ai/dsh-fs-observation-policy` ([`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts))
+- `@deepseek-ai/dsh-goal-conversation-monitor` — requires `agents` · `goals` · `sessions` ([`packages/goal/goal-conversation-monitor/src/index.ts`](../packages/goal/goal-conversation-monitor/src/index.ts))
 - `@deepseek-ai/dsh-goal-round-driver` — requires `agents` · `goals` · `sessions` ([`packages/goal/goal-round-driver/src/index.ts`](../packages/goal/goal-round-driver/src/index.ts))
 - `@deepseek-ai/dsh-host-directory-picker-auto` — requires `webServer` · `loader` ([`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts))
 - `@deepseek-ai/dsh-host-directory-picker-native` ([`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts))
@@ -3080,6 +3150,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-session-projection` ([`packages/session/session-projection/src/index.ts`](../packages/session/session-projection/src/index.ts))
 - `@deepseek-ai/dsh-session-stats` — requires `sessionProjections` ([`packages/session/session-stats/src/index.ts`](../packages/session/session-stats/src/index.ts))
 - `@deepseek-ai/dsh-skill-badge` — requires `skills` ([`packages/skill/skill-badge/src/index.ts`](../packages/skill/skill-badge/src/index.ts))
+- `@deepseek-ai/dsh-skill-dev-workflow` — requires `skills` ([`packages/skill/skill-dev-workflow/src/index.ts`](../packages/skill/skill-dev-workflow/src/index.ts))
 - `@deepseek-ai/dsh-storage` ([`packages/storage/storage/src/index.ts`](../packages/storage/storage/src/index.ts))
 - `@deepseek-ai/dsh-subagent` ([`packages/subagent/subagent/src/index.ts`](../packages/subagent/subagent/src/index.ts))
 - `@deepseek-ai/dsh-subprocess-local` ([`packages/subprocess/subprocess-local/src/index.ts`](../packages/subprocess/subprocess-local/src/index.ts))

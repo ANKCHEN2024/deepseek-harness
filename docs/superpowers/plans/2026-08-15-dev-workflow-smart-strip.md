@@ -28,7 +28,7 @@ English | [中文](2026-08-15-dev-workflow-smart-strip.zh.md)
 
 **Files:**
 - Create: `packages/client/ui-dev-workflow/src/client/suggest.ts`
-- Create: `packages/client/ui-dev-workflow/tests/suggest.spec.ts`
+- Create: `packages/client/ui-dev-workflow/tests/suggest.client.spec.ts`
 - Modify: none (reads `WORKFLOW_GROUPS` / `WorkflowActionId` from `prompts.ts`)
 
 **Interfaces:**
@@ -38,9 +38,18 @@ English | [中文](2026-08-15-dev-workflow-smart-strip.zh.md)
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// packages/client/ui-dev-workflow/tests/suggest.spec.ts
+// packages/client/ui-dev-workflow/tests/suggest.client.spec.ts
 import { describe, expect, it } from 'vitest'
-import { suggestActions } from '../src/client/suggest.ts'
+
+// Plan sketch: the module under test arrives in Step 3; the stub pins the
+// signature this failing test is written against.
+function suggestActions(_input: {
+  readonly recent: readonly string[]
+  readonly pinned: readonly string[]
+  readonly mode: string
+}): string[] {
+  throw new Error('plan sketch: implementation arrives in Step 3')
+}
 
 describe('suggestActions', () => {
   it('returns Plan first three when recent is empty', () => {
@@ -77,7 +86,7 @@ describe('suggestActions', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm exec vitest run packages/client/ui-dev-workflow/tests/suggest.spec.ts`
+Run: `pnpm exec vitest run packages/client/ui-dev-workflow/tests/suggest.client.spec.ts`
 
 Expected: FAIL (module not found / `suggestActions` undefined)
 
@@ -85,7 +94,10 @@ Expected: FAIL (module not found / `suggestActions` undefined)
 
 ```ts
 // packages/client/ui-dev-workflow/src/client/suggest.ts
-import { WORKFLOW_GROUPS, type WorkflowActionId, type WorkflowMode } from './prompts.ts'
+// Plan sketch: prompts.ts lands with Task 1; these local stubs pin the contract.
+type WorkflowActionId = string
+type WorkflowMode = 'edit' | 'analyze' | 'plan'
+const WORKFLOW_GROUPS: readonly { readonly headingKey: string; readonly actions: readonly WorkflowActionId[] }[] = []
 
 const FLAT: readonly WorkflowActionId[] = WORKFLOW_GROUPS.flatMap(g => g.actions)
 
@@ -120,14 +132,14 @@ Note: walking forward from the anchor covers “same-group next”, “cross gro
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm exec vitest run packages/client/ui-dev-workflow/tests/suggest.spec.ts`
+Run: `pnpm exec vitest run packages/client/ui-dev-workflow/tests/suggest.client.spec.ts`
 
 Expected: PASS
 
 - [ ] **Step 5: Commit** (when user authorizes commits)
 
 ```powershell
-git add packages/client/ui-dev-workflow/src/client/suggest.ts packages/client/ui-dev-workflow/tests/suggest.spec.ts
+git add packages/client/ui-dev-workflow/src/client/suggest.ts packages/client/ui-dev-workflow/tests/suggest.client.spec.ts
 git commit -m "feat(ui-dev-workflow): add client suggestActions helper"
 ```
 
@@ -149,7 +161,24 @@ git commit -m "feat(ui-dev-workflow): add client suggestActions helper"
 ```ts
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { createDevWorkflowStore } from '../src/client/stores.ts'
+
+// Plan sketch: the store arrives in Step 3; the stub pins the
+// create()/getState()/actions() surface.
+function createDevWorkflowStore(): {
+  create(): {
+    getState(): {
+      recent: string[]
+      pinned: string[]
+      actions: {
+        recordRecent: (id: string) => void
+        togglePin: (id: string) => void
+        clearRecent: () => void
+      }
+    }
+  }
+} {
+  throw new Error('plan sketch: implementation arrives in Step 3')
+}
 
 describe('createDevWorkflowStore', () => {
   it('records recent newest-first, deduped, capped at 8', () => {
@@ -192,8 +221,25 @@ Expected: FAIL (module missing)
 
 ```ts
 // packages/client/ui-dev-workflow/src/client/stores.ts
-import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
-import { WORKFLOW_GROUPS, type WorkflowActionId, type WorkflowMode } from './prompts.ts'
+// Plan sketch: the real contract is defineStore / EngineStoreHandle from
+// @deepseek-ai/dsh-client-runtime/client; local stubs pin its shape here.
+type ActionsDecl<T> = Record<string, (draft: T, ...params: any[]) => void>
+interface StoreSpec<T, A extends ActionsDecl<T>> {
+  init: () => T
+  persist?: string
+  actions: A
+}
+interface EngineStoreHandle<T, A extends ActionsDecl<T>> {
+  create(scopeKey?: string): unknown
+}
+function defineStore<T, A extends ActionsDecl<T>>(decl: StoreSpec<T, A> & { actions: A & ActionsDecl<T> }): EngineStoreHandle<T, A> {
+  throw new Error('plan sketch: engine-backed implementation comes from dsh-client-runtime')
+}
+
+// Plan sketch: prompts.ts lands with Task 1; these local stubs pin the contract.
+type WorkflowActionId = string
+type WorkflowMode = 'edit' | 'analyze' | 'plan'
+const WORKFLOW_GROUPS: readonly { readonly headingKey: string; readonly actions: readonly WorkflowActionId[] }[] = []
 
 const VALID = new Set<string>(WORKFLOW_GROUPS.flatMap(g => g.actions))
 const HEADINGS = WORKFLOW_GROUPS.map(g => g.headingKey)

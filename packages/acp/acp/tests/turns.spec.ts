@@ -1,6 +1,7 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
+import CommandRuntime from '@deepseek-ai/dsh-commands'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import {
   errorResponse,
@@ -317,5 +318,37 @@ describe('ACP prompt lifecycle', () => {
 
     await expect(harness.client.prompt({ sessionId, prompt: [{ type: 'text', text: 'go' }] }))
       .rejects.toThrow(/turn failed: pre-step exploded/)
+  })
+
+  it('executes a composed slash command without sending it to the model', async () => {
+    harness = await makeBridgeHarness({ script: [textResponse('should not run')] })
+    await harness.ctx.plugin(CommandRuntime)
+    let seen = false
+    harness.ctx.commands.register({
+      name: 'ping',
+      description: 'test ping',
+      handler: () => {
+        seen = true
+        return { kind: 'success', text: 'pong' }
+      },
+    })
+    const sessionId = await newSession(harness)
+    const result = await harness.client.prompt({
+      sessionId,
+      prompt: [{ type: 'text', text: '/ping' }],
+    })
+    expect(result.stopReason).toBe('end_turn')
+    expect(seen).toBe(true)
+    expect(harness.adapter.requests).toHaveLength(0)
+  })
+
+  it('rejects an unknown slash command when a commands registry is composed', async () => {
+    harness = await makeBridgeHarness({ script: [] })
+    await harness.ctx.plugin(CommandRuntime)
+    const sessionId = await newSession(harness)
+    await expect(harness.client.prompt({
+      sessionId,
+      prompt: [{ type: 'text', text: '/missing-command' }],
+    })).rejects.toThrow(/unknown command: \/missing-command/)
   })
 })

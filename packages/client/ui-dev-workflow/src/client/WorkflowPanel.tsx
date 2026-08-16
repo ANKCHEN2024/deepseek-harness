@@ -1,5 +1,5 @@
 import {
-  useEffect, useRef, useState,
+  useEffect, useId, useLayoutEffect, useRef, useState,
   type FormEvent, type KeyboardEvent, type MouseEvent,
 } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
@@ -36,6 +36,7 @@ const ACTION_LABEL: Readonly<Record<WorkflowActionId, DevWorkflowKey>> = {
   'security-review': 'action.security-review',
   'add-tests': 'action.add-tests',
   'a11y-check': 'action.a11y-check',
+  'visual-check': 'action.visual-check',
   debug: 'action.debug',
   'dead-code': 'action.dead-code',
   'deps-hygiene': 'action.deps-hygiene',
@@ -88,6 +89,7 @@ const ACTION_HINT: Readonly<Record<WorkflowActionId, DevWorkflowKey>> = {
   'security-review': 'hint.security-review',
   'add-tests': 'hint.add-tests',
   'a11y-check': 'hint.a11y-check',
+  'visual-check': 'hint.visual-check',
   debug: 'hint.debug',
   'dead-code': 'hint.dead-code',
   'deps-hygiene': 'hint.deps-hygiene',
@@ -211,10 +213,13 @@ export function WorkflowPanel({
   const [sendError, setSendError] = useState<{ kind: WorkflowRunFailureKind; detail: string } | null>(null)
   const [showDetail, setShowDetail] = useState(false)
   const [sentId, setSentId] = useState<WorkflowActionId | null>(null)
+  const searchId = useId()
   const aliveRef = useRef(true)
   const originRef = useRef<HTMLButtonElement | null>(null)
   const focusInputRef = useRef<HTMLInputElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const sendbarRef = useRef<HTMLElement | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     aliveRef.current = true
@@ -230,10 +235,16 @@ export function WorkflowPanel({
     }
   }, [listSkillNames, openPanel])
 
-  // Move focus into the task input whenever a (new) action opens the send bar.
+  // Move focus into the task input whenever a (new) action opens the send bar,
+  // and bring the bar into view when the originating action sits off-screen.
   useEffect(() => {
     if (pending === null) return
     focusInputRef.current?.focus()
+    const sendbar = sendbarRef.current
+    // jsdom lacks scrollIntoView; the guard keeps jsdom tests runnable.
+    if (sendbar !== null && typeof sendbar.scrollIntoView === 'function') {
+      sendbar.scrollIntoView({ block: 'nearest' })
+    }
   }, [pending?.id])
 
   // Auto-clear the sent status after a few seconds.
@@ -242,6 +253,29 @@ export function WorkflowPanel({
     const timer = setTimeout(() => { setSentId(null) }, 4000)
     return () => { clearTimeout(timer) }
   }, [sentId])
+
+  // After the post-send commit the send bar (with the focused confirm button)
+  // is gone; hand focus back to the origin action. When that action unmounted
+  // too (suggestion rotation after recording recent), land on the panel
+  // instead of the document body. Layout timing sees the final DOM.
+  useLayoutEffect(() => {
+    // A fresh send bar owns focus while open; only restore after it closes.
+    if (sentId === null || pending !== null) return
+    const origin = originRef.current
+    originRef.current = null
+    if (origin !== null && origin.isConnected) {
+      origin.focus()
+    } else {
+      panelRef.current?.focus()
+    }
+  }, [sentId, pending])
+
+  // The pin-full hint is transient; auto-dismiss like the sent status.
+  useEffect(() => {
+    if (!pinFullHint) return
+    const timer = setTimeout(() => { setPinFullHint(false) }, 3000)
+    return () => { clearTimeout(timer) }
+  }, [pinFullHint])
 
   const trimmed = query.trim().toLowerCase()
   const searching = trimmed.length > 0
@@ -335,21 +369,25 @@ export function WorkflowPanel({
 
   const onSendbarKeyDown = (event: KeyboardEvent<HTMLFormElement>): void => {
     if (event.key === 'Escape') {
+      // Block Escape from reaching the panel handler (search clear) in both
+      // cases, and keep the send bar open while a send is in flight.
       event.preventDefault()
-      cancelSend()
+      if (busy === null) cancelSend()
     }
   }
 
   const onPanelKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     // The panel only sees events bubbling from inside itself, so the search
-    // shortcuts never compete with the composer's own key handling.
+    // shortcuts never compete with the composer's own key handling. Events
+    // from an input mean the user is typing: neither shortcut may steal
+    // focus mid-composition (Escape still clears the search from the box).
     const typing = event.target instanceof HTMLInputElement
     if (event.key === '/' && !typing) {
       event.preventDefault()
       searchInputRef.current?.focus()
       return
     }
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k' && !typing) {
       event.preventDefault()
       searchInputRef.current?.focus()
       return
@@ -410,10 +448,12 @@ export function WorkflowPanel({
   }
 
   let anyMatch = false
+  let matchCount = 0
   for (const group of WORKFLOW_GROUPS) {
-    if (group.actions.some(matches)) {
+    for (const id of group.actions) {
+      if (!matches(id)) continue
+      matchCount++
       anyMatch = true
-      break
     }
   }
 
@@ -424,7 +464,14 @@ export function WorkflowPanel({
   ]
 
   return (
-    <div className={css.panel} data-testid="dev-workflow-panel" data-mode={mode} onKeyDown={onPanelKeyDown}>
+    <div
+      ref={panelRef}
+      tabIndex={-1}
+      className={css.panel}
+      data-testid="dev-workflow-panel"
+      data-mode={mode}
+      onKeyDown={onPanelKeyDown}
+    >
       <div className={css.mode}>
         <div className={css.modeLabel} id="dev-workflow-mode-label">{t('mode.label')}</div>
         <div className={css.modeRow} role="group" aria-labelledby="dev-workflow-mode-label">
@@ -451,9 +498,10 @@ export function WorkflowPanel({
         </div>
       </div>
 
-      <label className={css.search}>
-        <span className={css.visuallyHidden}>{t('search.placeholder')}</span>
+      <div className={css.search}>
+        <label className={css.visuallyHidden} htmlFor={searchId}>{t('search.placeholder')}</label>
         <input
+          id={searchId}
           type="search"
           className={css.searchInput}
           ref={searchInputRef}
@@ -461,10 +509,30 @@ export function WorkflowPanel({
           value={query}
           onChange={(event) => { setQuery(event.target.value) }}
         />
-      </label>
+        {query !== '' && (
+          <button
+            type="button"
+            className={css.searchClear}
+            aria-label={t('search.clear')}
+            onClick={() => {
+              setQuery('')
+              searchInputRef.current?.focus()
+            }}
+          >
+            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden>
+              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {pending !== null && (
-        <section className={css.sendbar} aria-label={t('sendbar.title')} data-testid="dev-workflow-sendbar">
+        <section
+          ref={sendbarRef}
+          className={css.sendbar}
+          aria-label={t('sendbar.title')}
+          data-testid="dev-workflow-sendbar"
+        >
           <div className={css.sendbarHeading}>
             {t('sendbar.title')} · {t(ACTION_LABEL[pending.id])}
           </div>
@@ -575,6 +643,12 @@ export function WorkflowPanel({
         </section>
       )}
 
+      {searching && anyMatch && (
+        <div className={css.searchCount} role="status">
+          {t('search.matches').replace('{n}', String(matchCount))}
+        </div>
+      )}
+
       {activeQuick !== null && (
         <section className={css.section} data-testid="dev-workflow-quick">
           <div className={css.sectionHeading}>
@@ -647,10 +721,8 @@ export function WorkflowPanel({
               type="button"
               className={css.headingRow}
               aria-expanded={expanded}
-              onClick={() => {
-                if (searching) return
-                toggleGroup(group.headingKey)
-              }}
+              disabled={searching}
+              onClick={() => { toggleGroup(group.headingKey) }}
             >
               <span className={css.heading}>{t(group.headingKey)}</span>
               {!searching && (
@@ -667,12 +739,16 @@ export function WorkflowPanel({
           </section>
         )
       })}
-      {pinFullHint && (
-        <div className={css.hintStatus} role="status">{t('pin.full')}</div>
-      )}
-      {sentId !== null && (
-        <div className={css.statusSent} role="status">
-          {t('status.sent')}：{t(ACTION_LABEL[sentId])}
+      {(pinFullHint || sentId !== null) && (
+        <div className={css.toast} data-testid="dev-workflow-status">
+          {pinFullHint && (
+            <div className={css.hintStatus} role="status">{t('pin.full')}</div>
+          )}
+          {sentId !== null && (
+            <div className={css.statusSent} role="status">
+              {t('status.sent')}：{t(ACTION_LABEL[sentId])}
+            </div>
+          )}
         </div>
       )}
     </div>

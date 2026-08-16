@@ -40,6 +40,7 @@
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`、`job_list`、`job_output` | `ctx.tools`、`ctx.jobs`、`ctx.systemPrompt` | `tool/call`、`tool/result`、`user/message via agent.inject() for background completion notices` | - | 与任务种类无关的后台任务控制器：后台 bash 命令、PTY 发送和 subagent 都通过相同的 3 个工具读取、列出和终止。加载该插件会挂接控制器，从而启用生产方的 `ctx.jobs.start()`。 |
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`、`owning Agent session` | `tool/call`、`todo/write`、`tool/result` | - | todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。 |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`、`ctx.workflowEngine`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents the script children)` | `tool/call`、`tool/result` | - | - |
+| `@deepseek-ai/dsh-tool-ports` | `allocate_port`、`release_port` | `ctx.tools`、`ctx.ports`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | allocate_port 与 release_port 将探测与持久化委托给 ctx.ports，因此更换注册表后端时模型可见 schema 保持稳定。 |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`、`web_search` | `ctx.tools`、`ctx.web`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。 |
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
@@ -1828,6 +1829,65 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 ```
 
 来源：[`packages/workflow/tool-workflow/src/index.ts`](../packages/workflow/tool-workflow/src/index.ts)
+
+<a id="deepseek-aidsh-tool-ports"></a>
+
+## `@deepseek-ai/dsh-tool-ports`
+
+### `allocate_port`
+
+为当前项目中的某个服务器角色分配一个或多个 TCP 端口。分配在所有项目工作区之间共享，因此被分配的端口永远不会冲突；同一项目与用途在跨会话时复用同一端口。服务器停止时调用 release_port。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "purpose": {
+      "type": "string",
+      "description": "Stable short label for this server role, e.g. \"dev-server\" or \"docs-preview\". Reusing the same label in the same project returns the same port."
+    },
+    "count": {
+      "type": "number",
+      "description": "How many ports to allocate. Defaults to 1; extra ports get #2, #3... suffixes."
+    },
+    "preferred": {
+      "type": "array",
+      "description": "Ports to try first, in order; each must be free and unassigned.",
+      "items": {
+        "type": "number"
+      }
+    }
+  },
+  "required": [
+    "purpose"
+  ]
+}
+```
+
+来源：[`packages/ports/tool-ports/src/index.ts`](../packages/ports/tool-ports/src/index.ts)
+
+### `release_port`
+
+释放一个已分配的 TCP 端口，使其可再次分配。传入先前由 allocate_port 返回的端口号。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "port": {
+      "type": "number",
+      "description": "The allocated port to release."
+    }
+  },
+  "required": [
+    "port"
+  ]
+}
+```
+
+来源：[`packages/ports/tool-ports/src/index.ts`](../packages/ports/tool-ports/src/index.ts)
+
+allocate_port 与 release_port 将探测与持久化委托给 ctx.ports，因此更换注册表后端时模型可见 schema 保持稳定。
 
 <a id="deepseek-aidsh-tool-web"></a>
 

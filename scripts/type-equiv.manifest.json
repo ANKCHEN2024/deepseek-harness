@@ -1701,6 +1701,26 @@
       "source": "packages/workspace/workspace/src/types.ts"
     },
     {
+      "doc": "docs/subsystems/ports.md",
+      "symbol": "PortScope",
+      "source": "packages/ports/ports/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/ports.md",
+      "symbol": "PortLease",
+      "source": "packages/ports/ports/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/ports.md",
+      "symbol": "AllocatePortRequest",
+      "source": "packages/ports/ports/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/ports.md",
+      "symbol": "AllocatePortResult",
+      "source": "packages/ports/ports/src/types.ts"
+    },
+    {
       "doc": "docs/subsystems/client-modules.md",
       "symbol": "WebBootEntry",
       "source": "packages/client/modules/src/client/manifest.ts"

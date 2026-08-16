@@ -51,6 +51,7 @@ import * as ToolStrReplaceEditor from '@deepseek-ai/dsh-tool-str-replace-editor'
 import TerminalSessionService from '@deepseek-ai/dsh-terminal'
 import * as ToolPty from '@deepseek-ai/dsh-tool-terminal'
 import * as ToolGoal from '@deepseek-ai/dsh-tool-goal'
+import * as ToolPorts from '@deepseek-ai/dsh-tool-ports'
 import * as ToolSchedule from '@deepseek-ai/dsh-schedule'
 import Lsp from '@deepseek-ai/dsh-lsp'
 import * as ToolLsp from '@deepseek-ai/dsh-tool-lsp'
@@ -533,6 +534,24 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(VmWorkflowEngine, { provider: 'mock' })
       await ctx.plugin(ToolWorkflow)
     },
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-ports',
+    dir: 'tool-ports',
+    source: 'packages/ports/tool-ports/src/index.ts',
+    requires: ['ctx.tools', 'ctx.ports', 'ctx.systemPrompt'],
+    writes: ['tool/call', 'tool/result'],
+    async mount(ctx) {
+      // The catalog records schemas only; a registry stub satisfies the
+      // inject without booting the storage/domain stack.
+      ctx.provide('ports', {
+        allocate: () => Promise.resolve({ scope: { kind: 'global' }, ports: [] }),
+        release: () => Promise.resolve(true),
+      } as never)
+      await ctx.plugin(ToolPorts)
+    },
+    note:
+      'allocate_port and release_port delegate probing and durability to ctx.ports, so model-visible schemas stay stable across registry backends.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-web',

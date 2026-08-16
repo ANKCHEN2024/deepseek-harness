@@ -73,6 +73,18 @@
     - id: workspace
       name: '@deepseek-ai/dsh-workspace'
 
+    # Durable port leases: one registry shared across every workspace and
+    # session, so dev servers started for different projects never collide.
+    # `tool-ports` is the model-facing consumer a preset mounts.
+    - id: ports
+      name: '@deepseek-ai/dsh-ports'
+
+    # Opt-in conversation auto-dev monitor over same-session goals. Stays out
+    # of dsh-base; the process-local switch defaults off until `/auto-dev on`
+    # or the header toggle. Invents via auto_dev_decide, not forged user source.
+    - id: goal-conversation-monitor
+      name: '@deepseek-ai/dsh-goal-conversation-monitor'
+
     - id: session-projection-cache
       name: '@deepseek-ai/dsh-session-projection-cache'
       config:
@@ -240,6 +252,10 @@
     # Project SDLC workflow toolbox in the right details column.
     - id: ui-dev-workflow
       name: '@deepseek-ai/dsh-client-ui-dev-workflow'
+
+    # Session-header auto-dev toggle: sends `/auto-dev on|off` through conversation.send.
+    - id: ui-auto-dev
+      name: '@deepseek-ai/dsh-client-ui-auto-dev'
 
     # Goal surface: GoalBar in the input dock over the goal session projection.
     - id: ui-goal

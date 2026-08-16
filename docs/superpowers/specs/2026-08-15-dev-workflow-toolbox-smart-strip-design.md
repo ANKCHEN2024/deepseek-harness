@@ -111,7 +111,7 @@ No `test:web` snapshot change is required this round unless the assembled right-
 
 The implementation PR must:
 
-- Update `packages/client/ui-dev-workflow/README{,.zh,.i18n.yaml}` (Known Limitations: remove "mode/accordion not persisted"; state that suggestions are client heuristics without git).
+- Update `packages/client/ui-dev-workflow/README.md` (plus `README.zh.md` and `README.i18n.yaml`) (Known Limitations: remove "mode/accordion not persisted"; state that suggestions are client heuristics without git).
 - Add or update an Agent Note (extend the existing toolbox note, or open a new feature note with cross-links) describing store persist and the suggestion rules.
 
 ## Acceptance criteria

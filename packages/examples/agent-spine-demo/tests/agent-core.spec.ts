@@ -287,6 +287,19 @@ describe('dsh-agent-spine-demo bundle', () => {
     expect(agent?.id).toMatch(/^main-session-/)
     const assembly = await ctx.get('systemPrompt')!.assemble()
     expect(assembly.sections.find(s => s.name === 'deployment:persona')?.text).toBe('You are main.')
+    expect(assembly.sections.find(s => s.name === 'deployment:language')?.text).toBe('')
+    await ctx.fiber.dispose()
+  })
+
+  it('forwards the language directive to system-prompt', async () => {
+    const ctx = await mount({
+      agents: [{ id: SessionId('main'), provider: 'mock', model: 'mock' }],
+      language: 'English',
+      workspaceContext: false,
+    })
+    const assembly = await ctx.get('systemPrompt')!.assemble()
+    expect(assembly.sections.find(s => s.name === 'deployment:language')?.text)
+      .toBe('Always think and respond in English. This includes your internal reasoning, not only your visible replies.')
     await ctx.fiber.dispose()
   })
 
@@ -736,6 +749,7 @@ describe('dsh-agent-spine-demo bundle', () => {
       includeHarnessIdentity: false,
       includeRuntimeContext: false,
       persona: 'You are merged.',
+      language: 'English',
       toolOrder: ['zulu'],
       tools: { mode: 'native' as const },
       dshHome: '/tmp/dsh-home',
@@ -754,6 +768,7 @@ describe('dsh-agent-spine-demo bundle', () => {
       includeHarnessIdentity: appConfig.includeHarnessIdentity,
       includeRuntimeContext: appConfig.includeRuntimeContext,
       persona: appConfig.persona,
+      language: appConfig.language,
       toolOrder: appConfig.toolOrder,
       tools: appConfig.tools,
       dshHome: appConfig.dshHome,

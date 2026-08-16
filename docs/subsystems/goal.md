@@ -2,7 +2,7 @@
 
 English | [中文](goal.zh.md)
 
-Types shared by the event-sourced goal service and its policy consumers. The [goal-domain Agent Note](../../.agents/notes/implemented/feature/2026-07-19-persisted-same-session-goal-domain.md) owns the persistence and activation decisions; this page records the exact fields and variants from [`packages/goal/goal/src/types.ts`](../../packages/goal/goal/src/types.ts).
+Types shared by the event-sourced goal service and its policy consumers. The [goal-domain Agent Note](../../.agents/notes/implemented/feature/2026-07-19-persisted-same-session-goal-domain.md) owns the persistence and activation decisions; this page records the exact fields and variants from [`packages/goal/goal/src/types.ts`](../../packages/goal/goal/src/types.ts). Same-session round continuation is owned by [`dsh-goal-round-driver`](../../packages/goal/goal-round-driver/README.md); the opt-in conversation auto-dev monitor that may invent or rearm goals without forging human attestation is [`dsh-goal-conversation-monitor`](../../packages/goal/goal-conversation-monitor/README.md) ([Agent Note](../../.agents/notes/implemented/feature/2026-08-15-conversation-auto-dev-monitor.md)).
 
 ## Identity and lifecycle
 
@@ -205,6 +205,7 @@ create(agent: Agent, request: CreateGoalRequest): GoalView
 /**
  * Resume and arm a stopped goal, or rearm an active goal after a
  * session-start edge, while its round budget still has capacity.
+ * An already-armed active goal is a no-op success (same revision).
  * @param agent - owning live agent.
  * @param ref - expected current revision.
  * @returns the active view.

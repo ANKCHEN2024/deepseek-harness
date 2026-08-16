@@ -1,0 +1,8 @@
+{
+  "steps": [
+    { "op": "initialize" },
+    { "op": "newSession" },
+    { "op": "promptAndWaitForAgentMessage", "text": "Allocate a port for the purpose dev-server, then allocate the same purpose again, then reply with the single word PORTS_OK and stop.", "waitForText": "PORTS_OK" },
+    { "op": "waitForTurnEnd" }
+  ]
+}

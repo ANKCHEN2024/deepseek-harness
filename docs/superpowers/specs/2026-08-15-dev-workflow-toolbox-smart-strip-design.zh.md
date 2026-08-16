@@ -111,7 +111,7 @@ Store 是面板级全局（跨 Session 复用同一 persist），不按 `session
 
 实现 PR 须：
 
-- 更新 `packages/client/ui-dev-workflow/README{,.zh,.i18n.yaml}`（Known Limitations：去掉「mode/accordion 不持久」；写明建议为客户端启发式、无 git）。
+- 更新 `packages/client/ui-dev-workflow/README.md`（及 `README.zh.md`、`README.i18n.yaml`）（Known Limitations：去掉「mode/accordion 不持久」；写明建议为客户端启发式、无 git）。
 - 新增或更新 Agent Note（扩展现有 toolbox note，或新开 feature note 并交叉链接），描述 store persist 与建议规则。
 
 ## 验收标准

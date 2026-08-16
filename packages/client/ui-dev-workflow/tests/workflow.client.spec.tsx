@@ -82,8 +82,8 @@ function mountPanel(overrides: {
 describe('dev-workflow prompts', () => {
   it('covers every grouped action with mode-aware Chinese prompts and skill tokens', () => {
     const ids = WORKFLOW_GROUPS.flatMap(group => group.actions)
-    expect(ids).toHaveLength(48)
-    expect(new Set(ids).size).toBe(48)
+    expect(ids).toHaveLength(49)
+    expect(new Set(ids).size).toBe(49)
     for (const id of ids) {
       const edit = promptFor(id, 'edit')
       const analyze = promptFor(id, 'analyze')
@@ -427,6 +427,109 @@ describe('WorkflowPanel', () => {
     // Escape with no query and no send bar is a no-op.
     fireEvent.keyDown(view.getByTestId('dev-workflow-panel'), { key: 'Escape' })
     expect(search.value).toBe('')
+  })
+
+  it('ignores Escape in the send bar while a send is in flight', async () => {
+    let resolve!: (value: WorkflowRunResult) => void
+    const run = vi.fn<RunFn>(() => new Promise<WorkflowRunResult>((resolveRun) => {
+      resolve = resolveRun
+    }))
+    const { view } = mountPanel({ run })
+    fireEvent.click(view.getAllByText('需求分析')[0]!)
+    fireEvent.click(view.getByRole('button', { name: '确认发送' }))
+    const sendbar = view.getByTestId('dev-workflow-sendbar')
+    expect(within(sendbar).getByText('发送中…')).toBeTruthy()
+    fireEvent.keyDown(view.getByTestId('dev-workflow-sendbar-form'), { key: 'Escape' })
+    expect(view.getByTestId('dev-workflow-sendbar')).toBeTruthy()
+    resolve({ ok: true })
+    await waitFor(() => {
+      expect(view.queryByTestId('dev-workflow-sendbar')).toBeNull()
+    })
+  })
+
+  it('keeps slash and Ctrl/Cmd+K from stealing focus while typing in the task input', () => {
+    const { view } = mountPanel()
+    fireEvent.click(view.getAllByText('需求分析')[0]!)
+    const input = view.getByPlaceholderText('本次任务或范围，例如：修复 session 导出超时') as HTMLInputElement
+    expect(document.activeElement).toBe(input)
+    fireEvent.keyDown(input, { key: 'k', ctrlKey: true })
+    expect(document.activeElement).toBe(input)
+    fireEvent.keyDown(input, { key: 'k', metaKey: true })
+    expect(document.activeElement).toBe(input)
+    fireEvent.keyDown(input, { key: '/' })
+    expect(document.activeElement).toBe(input)
+  })
+
+  it('returns focus to the origin action after a successful send', async () => {
+    const { view } = mountPanel()
+    // Index 1 is the stable plan-group instance; index 0 is the suggestion strip.
+    const action = view.getAllByText('需求分析')[1]!.closest('button')!
+    fireEvent.click(action)
+    fireEvent.click(view.getByRole('button', { name: '确认发送' }))
+    await waitFor(() => {
+      expect(view.queryByTestId('dev-workflow-sendbar')).toBeNull()
+    })
+    expect(document.activeElement).toBe(action)
+  })
+
+  it('lands focus on the panel when the origin action unmounts after a send', async () => {
+    const { view } = mountPanel()
+    // Sending from the suggestion strip rotates suggestions (recent changes),
+    // so this exact button unmounts before focus can return to it.
+    fireEvent.click(view.getAllByText('需求分析')[0]!)
+    fireEvent.click(view.getByRole('button', { name: '确认发送' }))
+    await waitFor(() => {
+      expect(view.queryByTestId('dev-workflow-sendbar')).toBeNull()
+    })
+    expect(document.activeElement).toBe(view.getByTestId('dev-workflow-panel'))
+  })
+
+  it('shows the match count while searching and clears from the in-box button', () => {
+    const { view } = mountPanel()
+    const search = view.getByPlaceholderText('搜索动作…') as HTMLInputElement
+    fireEvent.change(search, { target: { value: '设计' } })
+    expect(view.getByText('匹配 3 个动作')).toBeTruthy()
+    fireEvent.click(view.getByRole('button', { name: '清空搜索' }))
+    expect(search.value).toBe('')
+    expect(view.queryByText('匹配 3 个动作')).toBeNull()
+    expect(view.getByTestId('dev-workflow-quick')).toBeTruthy()
+    expect(document.activeElement).toBe(search)
+  })
+
+  it('disables stage headings while searching', () => {
+    const { view, instance } = mountPanel()
+    fireEvent.change(view.getByPlaceholderText('搜索动作…'), { target: { value: 'PR' } })
+    const heading = view.getByText('交付').closest('button') as HTMLButtonElement
+    expect(heading.disabled).toBe(true)
+    fireEvent.click(heading)
+    expect(instance.store.getSnapshot().openGroup).toBe('group.plan')
+  })
+
+  it('auto-dismisses the pin-full hint after 3 seconds', () => {
+    vi.useFakeTimers()
+    try {
+      const { view, instance } = mountPanel()
+      act(() => {
+        for (const id of [
+          'requirements',
+          'docs',
+          'implement',
+          'refactor',
+          'optimize',
+          'debug',
+        ] as const) {
+          instance.actions.togglePin(id)
+        }
+      })
+      const stories = view.getAllByText('用户故事')[0]!
+      const pin = stories.closest('div')?.querySelector('button[aria-label^="收藏或取消收藏"]')
+      fireEvent.click(pin!)
+      expect(view.getByText('收藏已满（最多 6 个）')).toBeTruthy()
+      act(() => { vi.advanceTimersByTime(3000) })
+      expect(view.queryByText('收藏已满（最多 6 个）')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows recent actions as a fallback under the no-match state', () => {

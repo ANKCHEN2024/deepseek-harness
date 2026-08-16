@@ -27,6 +27,7 @@ export type WorkflowActionId =
   | 'security-review'
   | 'add-tests'
   | 'a11y-check'
+  | 'visual-check'
   | 'debug'
   | 'dead-code'
   | 'deps-hygiene'
@@ -95,6 +96,7 @@ export const ACTION_RISK: Readonly<Record<WorkflowActionId, WorkflowRisk>> = {
   'security-review': 'writes-repo',
   'add-tests': 'writes-repo',
   'a11y-check': 'writes-repo',
+  'visual-check': 'writes-repo',
   debug: 'writes-repo',
   'dead-code': 'writes-repo',
   'deps-hygiene': 'writes-repo',
@@ -153,7 +155,7 @@ export const WORKFLOW_GROUPS: readonly WorkflowGroup[] = [
   { headingKey: 'group.plan', actions: ['requirements', 'user-stories', 'task-breakdown'] },
   { headingKey: 'group.design', actions: ['docs', 'ui-design', 'tech-design', 'api-design', 'data-model'] },
   { headingKey: 'group.build', actions: ['implement', 'refactor', 'optimize'] },
-  { headingKey: 'group.quality', actions: ['code-review', 'security-review', 'add-tests', 'a11y-check', 'debug'] },
+  { headingKey: 'group.quality', actions: ['code-review', 'security-review', 'add-tests', 'a11y-check', 'visual-check', 'debug'] },
   { headingKey: 'group.cleanup', actions: [
     'dead-code',
     'deps-hygiene',
@@ -261,21 +263,25 @@ export const WORKFLOW_BODIES: Readonly<Record<WorkflowActionId, string>> = {
 4. 关键约束（技术、时间、依赖、合规）
 5. 待确认问题（仅列无法从仓库推断的问题）
 6. 验收标准清单（Given/When/Then 或等价条目）
-7. 建议的下一步（规划 / 设计 / 实现）`,
+7. 建议的下一步（规划 / 设计 / 实现）
+工件约定：可改代码模式下把上述七节写入 docs/requirements.md，作为后续环节的共享工件；只分析模式下仅输出正文。`,
 
   'user-stories': `请把当前目标写成用户故事与场景：
-1. 以「作为…我希望…以便…」列出故事，按价值排序
-2. 每个故事附 2–5 条验收条件
-3. 标出依赖、风险与可并行项
-4. 区分 MVP 与后续迭代
-不要开始改代码，除非执行模式允许且我已要求实现。`,
+1. 若存在 docs/requirements.md，先读取并对齐范围与验收标准
+2. 以「作为…我希望…以便…」列出故事，按价值排序
+3. 每个故事附 2–5 条验收条件
+4. 标出依赖、风险与可并行项
+5. 区分 MVP 与后续迭代
+可改代码模式下把故事写入 docs/user-stories.md，不要改动需求工件。不要开始改业务代码，除非执行模式允许且我已要求实现。`,
 
   'task-breakdown': `请把当前目标拆成可执行任务列表：
-1. 按优先级排序；每项写清交付物、依赖、预估复杂度（S/M/L）
-2. 标出可并行项与关键路径
-3. 给出建议的实施顺序与里程碑检查点
-4. 点名需要先读的文件 / 模块
-不要开始改代码，除非执行模式允许且我明确要求实现。`,
+1. 若存在 docs/requirements.md 与 docs/user-stories.md，先读取；每个任务要能回溯到某个故事或需求
+2. 按优先级排序；每项写清交付物、依赖、预估复杂度（S/M/L）
+3. 标出可并行项与关键路径
+4. 给出建议的实施顺序与里程碑检查点
+5. 点名需要先读的文件 / 模块
+6. 若环境提供 todo 工具，把任务镜像写入 todo 并保持两者一致
+可改代码模式下把拆分结果写入 docs/task-breakdown.md。不要开始改业务代码，除非执行模式允许且我明确要求实现。`,
 
   docs: `请撰写或更新项目文档（优先 README，必要时补充 docs/ 架构说明）：
 1. 项目是什么、解决什么问题
@@ -285,13 +291,15 @@ export const WORKFLOW_BODIES: Readonly<Record<WorkflowActionId, string>> = {
 5. 常见问题与排障入口
 文档必须反映仓库真实结构；缺信息时先读代码再写。若执行模式允许改文件，直接提交文档改动并说明路径。`,
 
-  'ui-design': `请做 UI / 交互设计方案（文字稿，不接外部设计工具）：
-1. 信息架构与主要页面 / 视图
-2. 关键用户流程（含分支与失败路径）
-3. 各页面布局、组件层级与关键文案
-4. 状态（空 / 加载 / 错误 / 成功 / 权限不足）
-5. 视觉与可用性约束（对比度、间距、响应式、键盘操作）
-若仓库已有设计系统或 UI 约定，请对齐它们。`,
+  'ui-design': `请做 UI / 交互设计方案：
+1. 先消费设计稿：工作区或消息中如有设计稿图片（截图、Figma 导出、线框图），用读图工具逐张提取布局、间距、配色、字体、组件与状态细节；设计稿未交代的内容明确标注
+2. 信息架构与主要页面 / 视图
+3. 关键用户流程（含分支与失败路径）
+4. 各视图的布局、组件层级与关键文案
+5. 状态（空 / 加载 / 错误 / 成功 / 权限不足）
+6. 设计 token 与无障碍约束（对比度、间距、响应式、键盘操作）
+7. 每个视图的验收条件（实现完成后可据此核对）
+若仓库已有设计系统或 UI 约定，请对齐它们。可改代码模式下把规范写入 docs/ui-design.md，供视觉核对与实现引用。`,
 
   'tech-design': `请输出可落地的技术方案：
 1. 现状摘要（相关模块与约束）
@@ -318,7 +326,7 @@ export const WORKFLOW_BODIES: Readonly<Record<WorkflowActionId, string>> = {
 不要臆造不存在的表或文件格式。`,
 
   implement: `请实现当前需求：
-1. 先读相关代码、测试与邻近约定
+1. 先读相关代码、测试与邻近约定；若存在流水线工件（docs/requirements.md、docs/user-stories.md、docs/task-breakdown.md、docs/ui-design.md），先读取并让改动对齐其范围与验收标准
 2. 小步修改，保持现有风格与包边界
 3. 补必要测试；改动说明要可审查
 4. 给出验证步骤（命令或手工路径）
@@ -360,12 +368,21 @@ export const WORKFLOW_BODIES: Readonly<Record<WorkflowActionId, string>> = {
 3. 说明如何运行这些测试
 4. 若执行模式允许，直接添加测试文件并确保可运行`,
 
-  'a11y-check': `请做无障碍与可用性检查（针对 Web / UI 相关代码）：
-1. 语义结构、焦点顺序、键盘可达
-2. 对比度与可读性
-3. 表单标签、错误提示与状态通知
-4. 列出问题、影响用户与修复建议
+  'a11y-check': `请做无障碍与可用性检查（针对 Web / UI 相关代码，运行时优先）：
+1. 若环境提供浏览器 / 截图工具，实际打开目标页面检查渲染结果（语义结构、焦点顺序、键盘可达、对比度），工具允许时留证
+2. 没有运行时工具时，退化为对 UI 代码的静态检查
+3. 对比度与可读性
+4. 表单标签、错误提示与状态通知
+5. 列出问题、影响用户与修复建议
 有现成组件库约定时对齐约定；执行模式允许时可直接修明显问题。`,
+
+  'visual-check': `请核对实现与设计是否一致，并输出按优先级排序的偏差清单：
+1. 若存在 docs/ui-design.md，先读取设计规范；否则从设计稿图片与验收条件重建核对清单
+2. 获取实现画面：环境提供浏览器 / 截图工具时直接截取；没有时明确告诉用户需要截哪些页面与状态、如何以图片提供
+3. 逐视图、逐状态对照规范核对：布局、间距、配色、字体、组件变体、文案、空 / 加载 / 错误态
+4. 输出偏差清单（阻断 / 主要 / 次要），每项写清位置、期望 vs 实际、修复建议；本动作只核对，不修代码
+5. 比对中发现的可用性问题交由无障碍检查处理
+可改代码模式下把报告写入 docs/visual-check.md 并标注截图路径。`,
 
   debug: `请排查并修复问题：
 1. 根据报错 / 现象定位根因（先复现或读日志 / 代码，禁止无证据猜测）
@@ -532,12 +549,13 @@ export const WORKFLOW_BODIES: Readonly<Record<WorkflowActionId, string>> = {
 5. 获取方式、开始步骤、支持入口
 输出结构清晰的 Markdown（含标题层级），适合打印或浏览器「打印为 PDF」；若执行模式允许，写入 docs/ 并说明路径。不要依赖本环境生成二进制 PDF。`,
 
-  'component-library': `请从现有 UI / 前端代码提炼组件库资产：
+  'component-library': `请提炼并管理可复用 UI 组件资产与设计 token：
 1. 可复用组件清单（名称、职责、入口路径）
 2. 每个组件的 props / 变体 / 状态（空、加载、错误）
-3. 使用示例与反模式
-4. 设计 token / 主题 / 无障碍约定
-5. 缺口与建议的下一步抽取顺序
+3. 设计 token：颜色、间距、字体、圆角、阴影 —— 从主题 / CSS 文件提取语义名与原始值，并把每个 token 映射到代码位置
+4. 使用示例与反模式
+5. 无障碍约定
+6. 缺口与建议的下一步抽取顺序
 对齐仓库已有设计系统；若执行模式允许，写入组件文档并说明路径。`,
 
   'architecture-retro': `请做交付后架构回顾：
