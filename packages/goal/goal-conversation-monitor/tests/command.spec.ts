@@ -41,10 +41,8 @@ async function run(test: Harness, suffix = ''): Promise<string> {
     new AbortController().signal,
   )
   if (execution === undefined) throw new Error('auto-dev command was not registered')
-  if (execution.result.kind === 'success' || execution.result.kind === 'error') {
-    return execution.result.text
-  }
-  throw new Error(`unexpected result kind: ${execution.result.kind}`)
+  if (execution.result.kind === 'error') return execution.result.text
+  return execution.result.text ?? ''
 }
 
 describe('/auto-dev command', () => {

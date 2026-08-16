@@ -13,10 +13,34 @@ export interface AutoDevDecideArgs {
   readonly objective?: string
 }
 
+/** Compact JSON-serializable goal snapshot in the tool result. */
+export type AutoDevDecideGoalValue = {
+  readonly id: string
+  readonly revision: number
+  readonly objective: string
+  readonly phase: GoalView['phase']
+  readonly roundsStarted: number
+  readonly maxGoalRounds: number
+  readonly activation: GoalView['activation']
+} | null
+
 /** Compact tool result. */
 export interface AutoDevDecideResult {
   readonly decision: 'create' | 'none'
-  readonly goal: GoalView | null
+  readonly goal: AutoDevDecideGoalValue
+}
+
+/** Project a goal view into the tool's JSON result fields. */
+function decideGoalValue(goal: GoalView): Exclude<AutoDevDecideGoalValue, null> {
+  return {
+    id: goal.id,
+    revision: goal.revision,
+    objective: goal.objective,
+    phase: goal.phase,
+    roundsStarted: goal.roundsStarted,
+    maxGoalRounds: goal.maxGoalRounds,
+    activation: goal.activation,
+  }
 }
 
 /**
@@ -47,15 +71,15 @@ export function registerAutoDevDecideTool(ctx: Context): () => void {
         type: 'object',
         additionalProperties: false,
         properties: {
-          decision: { type: 'string', required: true },
+          decision: { type: 'string', required: true, enum: ['create', 'none'] },
           goal: { type: 'json', required: true },
         },
       },
-      render: (_args: unknown, value: AutoDevDecideResult) => [
+      render: (_args, value) => [
         { type: 'text' as const, text: JSON.stringify(value) },
       ],
     },
-    execute(args: AutoDevDecideArgs, exec) {
+    execute(args, exec) {
       const agent = exec.agent
       if (agent === undefined) {
         throw new HarnessError('auto_dev_decide requires a calling agent', 'AUTO_DEV_AGENT_REQUIRED')
@@ -79,9 +103,9 @@ export function registerAutoDevDecideTool(ctx: Context): () => void {
         )
       }
       const goal = ctx.goals.create(agent, { objective })
-      return Promise.resolve({ decision: 'create' as const, goal })
+      return Promise.resolve({ decision: 'create' as const, goal: decideGoalValue(goal) })
     },
-    presentCall: (args: AutoDevDecideArgs): GenericCallView => ({
+    presentCall: (args): GenericCallView => ({
       card: 'generic',
       title: 'Auto-dev decide',
       kind: 'other',
