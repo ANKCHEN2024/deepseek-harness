@@ -244,6 +244,9 @@
       name: '@deepseek-ai/dsh-skill-badge'
       disabled: true
 
+    - id: skill-dev-workflow
+      name: '@deepseek-ai/dsh-skill-dev-workflow'
+
     - id: tool-skill
       name: '@deepseek-ai/dsh-tool-skill'
 

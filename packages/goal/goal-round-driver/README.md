@@ -45,7 +45,7 @@ Cancellation removes pending inbox work or leaves an agent-wide aborted state. A
 
 #### What the model sees
 
-Each admitted round is one retained user-role `<goal_round>` block naming the full objective and positive round number. Earlier human messages, goal-state snapshots, assistant output, and tool records remain in the same session history.
+Each admitted round is one retained user-role `<goal_round>` block naming the full objective and positive round number, and instructing the model to keep working after shell timeouts or non-zero exits. Earlier human messages, goal-state snapshots, assistant output, and tool records remain in the same session history.
 
 #### Token effect
 

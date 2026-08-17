@@ -34,6 +34,7 @@ import {
   type Stream,
 } from '@agentclientprotocol/sdk'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { parseCommand } from '@deepseek-ai/dsh-commands'
 import { SessionId, type SessionEvent, type TurnEndReason } from '@deepseek-ai/dsh-session'
 // Side-effect type import: declaration-merges the approval waterfall answered below.
 import type {} from '@deepseek-ai/dsh-user-approval'
@@ -293,6 +294,28 @@ export function apply(ctx: Context, config: AcpConfig): void {
         if (ctx.agents.get(record.agent.id) !== record.agent) {
           throw internalError('prompt was not queued: the agent was disposed outside the bridge')
         }
+
+        // When a commands registry is composed, a prompt that is exactly one
+        // slash-command line follows the Web host admission rule: execute
+        // through the registry and never send the line to the model. Absent
+        // commands, slash-looking text stays an ordinary user message.
+        const commands = ctx.get('commands')
+        const parsed = parseCommand(text)
+        if (commands !== undefined && parsed !== undefined) {
+          const execution = await commands.execute(
+            record.agent,
+            text,
+            new AbortController().signal,
+          )
+          if (execution === undefined) {
+            throw invalidParams(`unknown command: /${parsed.name}`)
+          }
+          if (execution.result.kind === 'error') {
+            throw invalidParams(execution.result.text)
+          }
+          return { stopReason: 'end_turn' }
+        }
+
         const message = createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })
         const stopReason = await new Promise<StopReason>((resolve, reject) => {
           // Arm the slot before followup() so a listener-driven synchronous

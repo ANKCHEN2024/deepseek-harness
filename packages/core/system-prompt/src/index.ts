@@ -55,8 +55,9 @@ export interface PromptSection {
   readonly name: string
   /**
    * Sections are concatenated in ascending order. Convention: `-100` is the
-   * harness identity, `0` the deployment persona, tool guidance uses 100–199;
-   * other negative orders also render before the persona.
+   * harness identity, `-50` the deployment language directive, `0` the
+   * deployment persona, tool guidance uses 100–199; other negative orders
+   * also render before the persona.
    */
   readonly order: number
   /**
@@ -130,6 +131,28 @@ export const PERSONA_SECTION = 'deployment:persona'
 /** Prompt order of the persona slot; the first section a model reads. */
 export const PERSONA_ORDER = 0
 
+/**
+ * The deployment language directive's section name and order. Exported for
+ * the same reason as {@link PERSONA_SECTION}: a scoped row (see `dsh-persona`)
+ * shadows the deployment directive for one agent, and both sides naming the
+ * same section is what makes the replacement work.
+ */
+export const LANGUAGE_SECTION = 'deployment:language'
+
+/** Prompt order of the language directive; after the identity, before the persona. */
+export const LANGUAGE_ORDER = -50
+
+/**
+ * Render the fixed language directive for one configured language name. The
+ * pinned model-visible text has this one owner; `dsh-persona` imports it so a
+ * scoped override renders the identical sentence.
+ * @param language - the configured language name to direct (e.g. `Chinese`).
+ * @returns the complete directive sentence.
+ */
+export function languageDirective(language: string): string {
+  return `Always think and respond in ${language}. This includes your internal reasoning, not only your visible replies.`
+}
+
 /** Valid variable names: how they are written between the braces. */
 const VARIABLE_NAME = /^[a-z][a-z0-9_]*$/
 
@@ -193,6 +216,13 @@ export interface Config {
    * `deployment:persona` shadows it; `{{variable}}` references are strict.
    */
   persona?: string
+  /**
+   * Deployment-wide conversation language, rendered as the order-−50
+   * `deployment:language` directive covering both visible replies and
+   * internal reasoning. A scoped section with the same name shadows it.
+   * Empty means no directive; the section drops at render.
+   */
+  language?: string
   /**
    * Model-facing tool names in order, with {@link TOOL_ORDER_REST} exactly once.
    * Invalid fields fail at load and unknown names fail at assembly; known names
@@ -340,6 +370,7 @@ export class SystemPrompt extends Service {
     includeHarnessIdentity: z.boolean().default(true),
     includeRuntimeContext: z.boolean().default(true),
     persona: z.string().default(''),
+    language: z.string().default(''),
     // Preserve omission because an explicit empty order lacks the rest marker.
     toolOrder: z.array(z.string()).default(undefined as unknown as string[]),
   })
@@ -361,6 +392,14 @@ export class SystemPrompt extends Service {
         text: 'You are an AI agent powered by DeepSeek Harness.',
       })
     }
+    // The slot is registered unconditionally so a scoped row can shadow it;
+    // an empty language renders no directive (the section drops at render).
+    const language = config.language ?? ''
+    this.section({
+      name: LANGUAGE_SECTION,
+      order: LANGUAGE_ORDER,
+      text: language === '' ? '' : languageDirective(language),
+    })
     this.section({
       name: PERSONA_SECTION,
       order: PERSONA_ORDER,

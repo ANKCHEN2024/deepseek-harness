@@ -1,0 +1,52 @@
+[
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "text" },
+      { "type": "text-delta", "index": 0, "text": "NOTED" },
+      { "type": "block-end", "index": 0, "block": { "type": "text", "text": "NOTED" } },
+      { "type": "usage", "usage": { "inputTokens": 20, "outputTokens": 1 } },
+      { "type": "finish", "reason": { "kind": "stop" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "tool-call" },
+      { "type": "tool-call-delta", "index": 0, "id": "call_auto_dev_decide", "name": "auto_dev_decide", "argumentsDelta": "{\"decision\":\"create\",\"objective\":\"Finish the ACP auto-dev snapshot objective\"}" },
+      { "type": "block-end", "index": 0, "block": { "type": "tool-call", "id": "call_auto_dev_decide", "name": "auto_dev_decide", "arguments": "{\"decision\":\"create\",\"objective\":\"Finish the ACP auto-dev snapshot objective\"}" } },
+      { "type": "usage", "usage": { "inputTokens": 40, "outputTokens": 12 } },
+      { "type": "finish", "reason": { "kind": "tool-calls" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "text" },
+      { "type": "text-delta", "index": 0, "text": "created" },
+      { "type": "block-end", "index": 0, "block": { "type": "text", "text": "created" } },
+      { "type": "usage", "usage": { "inputTokens": 48, "outputTokens": 1 } },
+      { "type": "finish", "reason": { "kind": "stop" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "tool-call" },
+      { "type": "tool-call-delta", "index": 0, "id": "call_goal_complete", "name": "update_goal", "argumentsDelta": "{\"goal_id\":\"{{fromRequest:goal-[0-9a-f-]+}}\",\"revision\":1,\"action\":\"complete\"}" },
+      { "type": "block-end", "index": 0, "block": { "type": "tool-call", "id": "call_goal_complete", "name": "update_goal", "arguments": "{\"goal_id\":\"{{fromRequest:goal-[0-9a-f-]+}}\",\"revision\":1,\"action\":\"complete\"}" } },
+      { "type": "usage", "usage": { "inputTokens": 60, "outputTokens": 10 } },
+      { "type": "finish", "reason": { "kind": "tool-calls" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "text" },
+      { "type": "text-delta", "index": 0, "text": "AUTO-DEV DONE" },
+      { "type": "block-end", "index": 0, "block": { "type": "text", "text": "AUTO-DEV DONE" } },
+      { "type": "usage", "usage": { "inputTokens": 72, "outputTokens": 2 } },
+      { "type": "finish", "reason": { "kind": "stop" } }
+    ]
+  }
+]

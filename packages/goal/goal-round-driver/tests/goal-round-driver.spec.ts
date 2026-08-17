@@ -160,7 +160,7 @@ describe('goal-round outcome policy', () => {
     const block = prompt[0]
     if (block?.type !== 'text') throw new Error('expected a text goal-round prompt')
     expect(block.text).toMatch(
-      /<goal_round>\nObjective: "Ship verified support"\nRound: 3\/9[\s\S]*current workspace[\s\S]*verify[\s\S]*mark it complete/,
+      /<goal_round>\nObjective: "Ship verified support"\nRound: 3\/9[\s\S]*current workspace[\s\S]*timeouts[\s\S]*mark it complete/,
     )
   })
 

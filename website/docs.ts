@@ -308,6 +308,7 @@ const subsystemGroups = [
     ['client-modules.md', '客户端模块', 'Client modules'],
     ['storage.md', '存储', 'Storage'],
     ['workspace.md', '工作区', 'Workspaces'],
+    ['ports.md', '端口分配', 'Port allocation'],
     ['settings.md', '用户设置', 'User settings'],
     ['credentials.md', '用户凭据', 'User credentials'],
   ]],

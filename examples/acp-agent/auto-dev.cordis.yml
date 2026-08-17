@@ -1,0 +1,14 @@
+# Auto-dev monitor overlay: mounts the commands registry and the conversation
+# monitor on top of the base ACP app. The spine already owns goals, tool-goal,
+# and goal-round-driver when goals are enabled (the demo default).
+- id: base
+  name: '@deepseek-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - insert:
+          - id: commands
+            name: '@deepseek-ai/dsh-commands'
+
+          - id: goal-conversation-monitor
+            name: '@deepseek-ai/dsh-goal-conversation-monitor'

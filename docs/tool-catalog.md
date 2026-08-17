@@ -38,6 +38,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`, `job_list`, `job_output` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `user/message via agent.inject() for background completion notices` | - | The kind-agnostic background-job controller: background bash commands, PTY sends, and subagents are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers' `ctx.jobs.start()`. |
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`, `ctx.workflowEngine`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents the script children)` | `tool/call`, `tool/result` | - | - |
+| `@deepseek-ai/dsh-tool-ports` | `allocate_port`, `release_port` | `ctx.tools`, `ctx.ports`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | allocate_port and release_port delegate probing and durability to ctx.ports, so model-visible schemas stay stable across registry backends. |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`, `web_search` | `ctx.tools`, `ctx.web`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps. |
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
@@ -179,7 +180,7 @@ exit_plan_mode stays in the model-facing schema while planning is inactive so tr
 
 ### `bash`
 
-Execute a bash command (`bash -c`) and return its stdout/stderr. Each call runs in a fresh shell: no state (cwd, variables, functions) persists between calls — pass `workdir` instead of using `cd`. Non-zero exits are reported as `[exit code: N]`. Current harness environment facts are exposed through managed `$DSH_*` variables; inspect them when needed. Commands may run under a file sandbox; a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]` — a policy denial, not a bug in the command; do not retry another way. Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. Set `run_in_background: true` for long-running commands: the call returns a job id immediately; read its output with `job_output` and stop it with `job_kill`.
+Execute a bash command (`bash -c`) and return its stdout/stderr. Each call runs in a fresh shell: no state (cwd, variables, functions) persists between calls — pass `workdir` instead of using `cd`. Non-zero exits are reported as `[exit code: N]`. Current harness environment facts are exposed through managed `$DSH_*` variables; inspect them when needed. Commands may run under a file sandbox; a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]` — a policy denial, not a bug in the command; do not retry another way. Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. `[timed out after …]` means this command's budget expired — retry with a larger `timeoutMs`, `run_in_background: true`, or a different approach in the SAME turn; do not end the turn. Non-zero `[exit code: N]` is a command failure to investigate and work around in the same turn, not a stop signal. Set `run_in_background: true` for long-running commands: the call returns a job id immediately; read its output with `job_output` and stop it with `job_kill`.
 
 ```json
 {
@@ -223,7 +224,7 @@ The bash tool is the model-facing consumer of the bash executor seam. A `run_in_
 
 ### `pwsh`
 
-Execute a PowerShell command (`pwsh -Command`) and return its stdout/stderr. Each call runs in a fresh pwsh process: no state (cwd, variables, functions) persists between calls — pass `workdir` instead of using `cd`. Paths use native Windows form (`C:\...`); read environment variables with `$env:NAME`. Non-zero exits are reported as `[exit code: N]`. Current harness environment facts are exposed through managed `$env:DSH_*` variables; inspect them when needed. Commands may run under a file sandbox; a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]` — a policy denial, not a bug in the command; do not retry another way. Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. On Windows a force-killed command settles as `[exit code: 1]` without a signal marker — treat it as an interruption, not a command failure. Set `run_in_background: true` for long-running commands: the call returns a job id immediately; read its output with `job_output` and stop it with `job_kill`.
+Execute a PowerShell command (`pwsh -Command`) and return its stdout/stderr. Each call runs in a fresh pwsh process: no state (cwd, variables, functions) persists between calls — pass `workdir` instead of using `cd`. Paths use native Windows form (`C:\...`); read environment variables with `$env:NAME`. Non-zero exits are reported as `[exit code: N]`. Current harness environment facts are exposed through managed `$env:DSH_*` variables; inspect them when needed. Commands may run under a file sandbox; a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]` — a policy denial, not a bug in the command; do not retry another way. Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. `[timed out after …]` means this command's budget expired — retry with a larger `timeoutMs`, `run_in_background: true`, or a different approach in the SAME turn; do not end the turn. Non-zero `[exit code: N]` is a command failure to investigate and work around in the same turn, not a stop signal. On Windows a force-kill without a timeout marker may settle as `[exit code: 1]` with no signal; that alone is not a reason to end the turn. Set `run_in_background: true` for long-running commands: the call returns a job id immediately; read its output with `job_output` and stop it with `job_kill`.
 
 ```json
 {
@@ -1823,6 +1824,65 @@ Constraints: concurrency and total-agent caps apply; no filesystem, network, tim
 ```
 
 Source: [`packages/workflow/tool-workflow/src/index.ts`](../packages/workflow/tool-workflow/src/index.ts)
+
+<a id="deepseek-aidsh-tool-ports"></a>
+
+## `@deepseek-ai/dsh-tool-ports`
+
+### `allocate_port`
+
+Allocate one or more TCP ports for a server role in the current project. Allocations are shared across every project workspace, so assigned ports never collide, and the same project and purpose reuse the same port across sessions. Call release_port when the server stops.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "purpose": {
+      "type": "string",
+      "description": "Stable short label for this server role, e.g. \"dev-server\" or \"docs-preview\". Reusing the same label in the same project returns the same port."
+    },
+    "count": {
+      "type": "number",
+      "description": "How many ports to allocate. Defaults to 1; extra ports get #2, #3... suffixes."
+    },
+    "preferred": {
+      "type": "array",
+      "description": "Ports to try first, in order; each must be free and unassigned.",
+      "items": {
+        "type": "number"
+      }
+    }
+  },
+  "required": [
+    "purpose"
+  ]
+}
+```
+
+Source: [`packages/ports/tool-ports/src/index.ts`](../packages/ports/tool-ports/src/index.ts)
+
+### `release_port`
+
+Release an allocated TCP port so it can be assigned again. Pass the port number previously returned by allocate_port.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "port": {
+      "type": "number",
+      "description": "The allocated port to release."
+    }
+  },
+  "required": [
+    "port"
+  ]
+}
+```
+
+Source: [`packages/ports/tool-ports/src/index.ts`](../packages/ports/tool-ports/src/index.ts)
+
+allocate_port and release_port delegate probing and durability to ctx.ports, so model-visible schemas stay stable across registry backends.
 
 <a id="deepseek-aidsh-tool-web"></a>
 

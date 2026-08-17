@@ -1,0 +1,58 @@
+# Keyless port-allocation snapshots re-pin the acp-agent model to
+# `deepseek-v4-flash` and mount the replay adapter, exactly like the other
+# keyless overlays: a config patch replaces the whole app config, so the base
+# fields are restated verbatim. The storage/domain/ports stack rides the same
+# include because it cannot target entries behind a nested include.
+- id: base
+  name: '@deepseek-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-deepseek
+        name: '@deepseek-ai/dsh-llm-deepseek'
+        disabled: true
+      - id: acp-agent
+        name: '@deepseek-ai/dsh-acp-demo'
+        config:
+          provider: deepseek-official
+          model: deepseek-v4-flash
+          persistenceRoot: !!js process.env.DSH_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
+          persistenceCompression: none
+          workspaceContext:
+            maxBytes: 65536
+          persona: |
+            You are a coding assistant powered by the {{model}} model. Your working directory is {{cwd}}. Your bash tool runs under a file sandbox — a `[sandbox: file access denied …]` result is policy, not a command bug.
+
+            Verify your work by running the code or tests. Keep answers brief and factual.
+      - insert:
+          - id: storage
+            name: '@deepseek-ai/dsh-storage'
+
+          - id: storage-json
+            name: '@deepseek-ai/dsh-storage-json'
+            config:
+              root: !!js process.env.DSH_SNAPSHOT_PORTS_ROOT ?? './.ports'
+
+          - id: storage-domain
+            name: '@deepseek-ai/dsh-storage-domain'
+            config:
+              backend: json
+
+          - id: ports
+            name: '@deepseek-ai/dsh-ports'
+            config:
+              minPort: 43000
+              maxPort: 43050
+
+          - id: tool-ports
+            name: '@deepseek-ai/dsh-tool-ports'
+
+          - id: llm-replay
+            name: '@deepseek-ai/dsh-llm-replay'
+            config:
+              providers:
+                - id: deepseek-official
+                  name: DeepSeek
+                  models:
+                    - id: deepseek-v4-flash
+                    - id: deepseek-v4-pro

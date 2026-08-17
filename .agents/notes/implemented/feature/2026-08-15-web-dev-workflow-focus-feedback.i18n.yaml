@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-15-web-dev-workflow-focus-feedback.md
+2026-08-15-web-dev-workflow-focus-feedback.md: 3d0020a7887ba5161940bfbd2f445a3dd1874316
+2026-08-15-web-dev-workflow-focus-feedback.zh.md: 84b9952dbf2c8ef9e3df75dfeff2f5abf4479818

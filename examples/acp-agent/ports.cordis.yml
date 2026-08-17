@@ -1,0 +1,32 @@
+# Port-allocation scenario overlay: the base cordis.yml composes the ACP app
+# but no storage stack, so this overlay mounts the storage hub, the JSON
+# backend, the domain form, and the ports capability the scenario exercises.
+# The ports tool resolves no workspace registry here, so allocations use the
+# global scope. The narrow range keeps replay deterministic on busy hosts.
+- id: base
+  name: '@deepseek-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - insert:
+          - id: storage
+            name: '@deepseek-ai/dsh-storage'
+
+          - id: storage-json
+            name: '@deepseek-ai/dsh-storage-json'
+            config:
+              root: !!js process.env.DSH_SNAPSHOT_PORTS_ROOT ?? './.ports'
+
+          - id: storage-domain
+            name: '@deepseek-ai/dsh-storage-domain'
+            config:
+              backend: json
+
+          - id: ports
+            name: '@deepseek-ai/dsh-ports'
+            config:
+              minPort: 43000
+              maxPort: 43050
+
+          - id: tool-ports
+            name: '@deepseek-ai/dsh-tool-ports'

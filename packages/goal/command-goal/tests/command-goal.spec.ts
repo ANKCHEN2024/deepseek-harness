@@ -181,10 +181,9 @@ describe('/goal human command', () => {
     const test = await harness()
     await run(test, ' work')
     const redundantResume = await run(test, ' RESUME')
-    expect(redundantResume).toEqual({
-      kind: 'error',
-      text: 'The goal command is not valid for the current state. Run /goal to view available commands.',
-    })
+    expect(redundantResume.kind).toBe('success')
+    expect(redundantResume.text).toContain('Goal resumed')
+    expect(test.ctx.goals.get(test.agent)).toMatchObject({ phase: 'active', activation: 'armed' })
     const paused = await run(test, ' PAUSE')
     expect(paused.kind).toBe('success')
     expect(paused.text).toContain('Goal paused')

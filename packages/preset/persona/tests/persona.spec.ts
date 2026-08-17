@@ -1,13 +1,16 @@
 import { Context } from '@deepseek-ai/cordis'
-import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
+import SystemPrompt, { LANGUAGE_SECTION, languageDirective, renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { createScope, type ScopeKey } from '@deepseek-ai/dsh-scope'
 import { describe, expect, it } from 'vitest'
 import * as Persona from '@deepseek-ai/dsh-persona'
 import { PERSONA_SECTION } from '@deepseek-ai/dsh-persona'
 
-async function harness(deploymentPersona: string): Promise<Context> {
+async function harness(deploymentPersona: string, deploymentLanguage?: string): Promise<Context> {
   const ctx = new Context()
-  await ctx.plugin(SystemPrompt, { persona: deploymentPersona })
+  await ctx.plugin(SystemPrompt, {
+    persona: deploymentPersona,
+    ...deploymentLanguage !== undefined ? { language: deploymentLanguage } : {},
+  })
   return ctx
 }
 
@@ -15,6 +18,12 @@ async function harness(deploymentPersona: string): Promise<Context> {
 async function personaText(ctx: Context, scope?: ScopeKey): Promise<string | undefined> {
   const assembly = await ctx.systemPrompt.assemble(scope === undefined ? {} : { scope })
   return assembly.sections.find(section => section.name === PERSONA_SECTION)?.text
+}
+
+/** The rendered text of the language slot as one scope sees it. */
+async function languageText(ctx: Context, scope?: ScopeKey): Promise<string | undefined> {
+  const assembly = await ctx.systemPrompt.assemble(scope === undefined ? {} : { scope })
+  return assembly.sections.find(section => section.name === LANGUAGE_SECTION)?.text
 }
 
 describe('the persona row', () => {
@@ -138,5 +147,61 @@ describe('the persona row', () => {
     expect((await ctx.systemPrompt.assemble({ scope: key })).contexts).toEqual([
       { name: 'policy', text: 'global policy' },
     ])
+  })
+})
+
+describe('the persona row language directive', () => {
+  it('keeps the deployment directive when the row omits language', async () => {
+    const ctx = await harness('deployment identity', 'English')
+    const key: ScopeKey = { agent: 'a1' }
+
+    await createScope(ctx, key).ctx.plugin(Persona, { text: 'preset identity' })
+
+    expect(await languageText(ctx, key)).toBe(languageDirective('English'))
+    expect(await languageText(ctx)).toBe(languageDirective('English'))
+  })
+
+  it('shadows the deployment directive for one scope only', async () => {
+    const ctx = await harness('deployment identity', 'English')
+    const key: ScopeKey = { agent: 'a1' }
+
+    await createScope(ctx, key).ctx.plugin(Persona, { text: 'preset identity', language: '中文' })
+
+    expect(await languageText(ctx, key)).toBe(languageDirective('中文'))
+    expect(await languageText(ctx)).toBe(languageDirective('English'))
+  })
+
+  it('supplies the directive for a deployment without one', async () => {
+    const ctx = await harness('deployment identity')
+    const key: ScopeKey = { agent: 'a1' }
+
+    await createScope(ctx, key).ctx.plugin(Persona, { text: 'preset identity', language: '中文' })
+
+    expect(await languageText(ctx, key)).toBe(languageDirective('中文'))
+    expect(await languageText(ctx)).toBe('')
+  })
+
+  it('shadows the deployment directive away entirely when language is empty', async () => {
+    const ctx = await harness('deployment identity', 'English')
+    const key: ScopeKey = { agent: 'a1' }
+
+    await createScope(ctx, key).ctx.plugin(Persona, { text: 'preset identity', language: '' })
+
+    // The slot is still occupied, so the deployment directive is gone for this
+    // agent; an empty section is dropped when the prompt renders.
+    expect(await languageText(ctx, key)).toBe('')
+    expect(await languageText(ctx)).toBe(languageDirective('English'))
+  })
+
+  it('restores the shadowed directive when its fiber unloads', async () => {
+    const ctx = await harness('deployment identity', 'English')
+    const key: ScopeKey = { agent: 'a1' }
+    const scope = createScope(ctx, key)
+    const fiber = await scope.ctx.plugin(Persona, { text: 'preset identity', language: '中文' })
+    expect(await languageText(ctx, key)).toBe(languageDirective('中文'))
+
+    await fiber.dispose()
+
+    expect(await languageText(ctx, key)).toBe(languageDirective('English'))
   })
 })

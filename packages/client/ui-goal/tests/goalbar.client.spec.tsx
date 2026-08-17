@@ -52,13 +52,15 @@ describe('GoalBar', () => {
     expect(complete.container.firstChild).toBeNull()
   })
 
-  it('active goal: goal glyph, "进行中的目标", truncated objective, edit and clear actions', () => {
+  it('active goal: goal glyph, "进行中的目标", truncated objective, resume/edit/clear actions', async () => {
     const actions = makeActions()
     render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     expect(screen.getByText('进行中的目标')).toBeTruthy()
     expect(screen.getByText('Ship the redesign')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '恢复目标' }))
+    await waitFor(() => { expect(actions.onResume).toHaveBeenCalledTimes(1) })
     fireEvent.click(screen.getByRole('button', { name: '清除目标' }))
-    expect(actions.onClear).toHaveBeenCalledTimes(1)
+    await waitFor(() => { expect(actions.onClear).toHaveBeenCalledTimes(1) })
   })
 
   it('single-flights rapid clear clicks and hides the committed goal before its projection catches up', async () => {
@@ -161,12 +163,24 @@ describe('GoalBar', () => {
     expect(screen.queryByText('进行中的目标')).toBeNull()
   })
 
-  it('blocked goal: "受阻的目标" with the block reason as the strip tooltip', () => {
+  it('blocked goal: "受阻的目标" with resume and the block reason as the strip tooltip', () => {
     const actions = makeActions()
     const goal = makeGoal({ phase: 'blocked', blockedReason: { code: 'stalled', message: 'No progress in 3 rounds' } })
     render(<GoalBar goal={goal} {...actions} t={t} />)
     expect(screen.getByText('受阻的目标')).toBeTruthy()
     expect(screen.getByText('受阻的目标').closest('[title]')?.getAttribute('title')).toBe('No progress in 3 rounds')
+    fireEvent.click(screen.getByRole('button', { name: '恢复目标' }))
+    expect(actions.onResume).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears pending after a thrown action so later clicks still fire', async () => {
+    const actions = makeActions()
+    actions.onResume.mockRejectedValueOnce(new Error('transport down'))
+    render(<GoalBar goal={makeGoal({ phase: 'paused' })} {...actions} t={t} />)
+    fireEvent.click(screen.getByRole('button', { name: '恢复目标' }))
+    expect((await screen.findByRole('alert')).textContent).toBe('transport down')
+    fireEvent.click(screen.getByRole('button', { name: '恢复目标' }))
+    await waitFor(() => { expect(actions.onResume).toHaveBeenCalledTimes(2) })
   })
 
   it('blocked goal without a reason carries no tooltip', () => {

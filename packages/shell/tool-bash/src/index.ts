@@ -71,12 +71,17 @@ function bashDescription(backgroundEnabled: boolean, escalationModes: readonly S
   const background = backgroundEnabled
     ? 'Set `run_in_background: true` for long-running commands: the call returns a job id immediately; read its output with `job_output` and stop it with `job_kill`.'
     : 'Background execution is not available; long-running commands must finish within the timeout.'
+  const timeoutRetry = backgroundEnabled
+    ? 'retry with a larger `timeoutMs`, `run_in_background: true`, or a different approach in the SAME turn'
+    : 'retry with a larger `timeoutMs` or a different approach in the SAME turn'
   const base = 'Execute a bash command (`bash -c`) and return its stdout/stderr. '
     + 'Each call runs in a fresh shell: no state (cwd, variables, functions) persists between calls — '
     + 'pass `workdir` instead of using `cd`. Non-zero exits are reported as `[exit code: N]`. '
     + `Current harness environment facts are exposed through managed \`$${DSH_ENV_PREFIX}*\` variables; inspect them when needed. `
     + 'Commands may run under a file sandbox; a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]` — a policy denial, not a bug in the command; do not retry another way. '
     + 'Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. '
+    + '`[timed out after …]` means this command\'s budget expired — ' + timeoutRetry + '; do not end the turn. '
+    + 'Non-zero `[exit code: N]` is a command failure to investigate and work around in the same turn, not a stop signal. '
     + background
   if (escalationModes.length === 0) return base
   return base + ' Attempting a command the sandbox may deny is safe and expected: run it and read the '
@@ -236,7 +241,8 @@ export function apply(ctx: Context, config: Config = {}): void {
   ctx.systemPrompt.section({
     name: 'tool:bash',
     order: 105,
-    text: 'Check the [exit code: N] marker on every bash result; investigate failures before moving on.',
+    text: 'Check the [exit code: N] marker on every bash result; investigate and continue in the same turn. '
+      + '`[timed out after …]` is a budget expiry — retry with a larger timeout, background the command, or change approach; do not end the turn.',
   })
 
   ctx.tools.register(defineTool({

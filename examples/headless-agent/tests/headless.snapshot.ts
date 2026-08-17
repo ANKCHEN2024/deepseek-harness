@@ -54,6 +54,7 @@ const dshBinScript = fileURLToPath(new URL('../../../apps/cli/src/bin.ts', impor
 const tsconfigPath = fileURLToPath(new URL('../../../tsconfig.json', import.meta.url))
 const reasoningConfigPath = fileURLToPath(new URL('./fixtures/cli.cordis.yml', import.meta.url))
 const deepseekDefaultsConfigPath = fileURLToPath(new URL('./fixtures/deepseek-defaults.cordis.yml', import.meta.url))
+const languageDirectiveConfigPath = fileURLToPath(new URL('./fixtures/language-directive.cordis.yml', import.meta.url))
 const headlessOverlayPath = fileURLToPath(new URL('./fixtures/headless-profile.cordis.yml', import.meta.url))
 const headlessSessionExpected = join(snapshotsDir, 'headless-profile', 'session.expected.jsonl')
 const headlessFailureExpected = join(snapshotsDir, 'headless-profile', 'stderr.expected.txt')
@@ -562,6 +563,51 @@ describe('headless stream-json snapshots', () => {
         maxTokens: true,
         reasoningEffort: true,
       })
+    } finally {
+      await server.close()
+    }
+  }, LOADER_SMOKE_TEST_TIMEOUT_MS)
+
+  it('sends the configured language directive right after the identity opener', async () => {
+    const server = await deepseekDefaultsServer()
+    try {
+      const result = await runLoaderSmoke({
+        label: 'language directive headless stream-json snapshot',
+        tempDirPrefix: 'headless-snapshot-language-directive-',
+        binScript,
+        libBinScript: binScript,
+        configPath: languageDirectiveConfigPath,
+        binArgs: [
+          languageDirectiveConfigPath,
+          'return the deterministic response',
+        ],
+        tsconfigPath,
+        env: {
+          DEEPSEEK_API_KEY: 'snapshot-key',
+          DSH_SNAPSHOT_BASE_URL: server.url,
+          NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
+        },
+      })
+
+      expect(result.stderr).toBe('')
+      expect(server.requests).toHaveLength(1)
+      const messages = server.requests[0]?.messages
+      const system = Array.isArray(messages)
+        ? (messages.find((message: JsonObject): message is JsonObject => (
+          message !== null
+          && typeof message === 'object'
+          && message.role === 'system'
+        ))?.content)
+        : undefined
+      expect(typeof system).toBe('string')
+      // Pinned order: the identity opener, then the directive, then the persona.
+      expect(system).toContain([
+        'You are an AI agent powered by DeepSeek Harness.',
+        '',
+        'Always think and respond in English. This includes your internal reasoning, not only your visible replies.',
+        '',
+        'Keyless language directive snapshot.',
+      ].join('\n'))
     } finally {
       await server.close()
     }

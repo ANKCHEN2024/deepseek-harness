@@ -315,7 +315,7 @@ describe('registration', () => {
     expect(schema?.parameters.required).toEqual(['command', 'description'])
     const prompt = renderPrompt(await ctx.systemPrompt.assemble())
     expect(prompt).toContain('Non-zero exits are reported as `[exit code: N]` markers')
-    expect(prompt).toContain('without a signal marker')
+    expect(prompt).toContain('that alone is not a stop signal')
   })
 
   it('stays pending until ctx.shell exists (inject)', async () => {
@@ -475,8 +475,8 @@ describe('execution through the bash seam', () => {
 
     bash.handler = () => runResult('', { timedOut: true, exitCode: null, signal: 'SIGTERM', timeoutMs: 500 })
     const timedOut = await call(ctx, 'pwsh', { command: 'slow', description: 'slow' })
-    // A timeout kill carries both facts, mirroring the bash tool's markers.
-    expect(text(timedOut)).toBe('(no output)\n[timed out after 500ms]\n[killed by signal: SIGTERM]')
+    // Timeout is the sole interrupt marker; signal/exit ride separately when not timed out.
+    expect(text(timedOut)).toBe('(no output)\n[timed out after 500ms]')
   })
 
   it('renders the truncation notice with (unavailable) when no spill path exists', async () => {

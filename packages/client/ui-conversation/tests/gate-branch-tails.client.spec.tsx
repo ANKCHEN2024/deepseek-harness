@@ -42,7 +42,8 @@ const SessionProviderStub: SessionProviderComponent = ({ children }) => children
 
 /** Observe the owner currency without importing the Tool details renderer. */
 function renderToolDetailsProbe(owners?: DetailsToolOwnerProps[]): DetailsSlotProps['renderSlot'] {
-  return (_key, owner) => {
+  return (key, owner) => {
+    if (key === 'conversation.details.workflow') return <div data-testid="workflow-seat" />
     owners?.push(owner as unknown as DetailsToolOwnerProps)
     return <div data-testid="tool-details-seat" />
   }
@@ -105,7 +106,7 @@ describe('render branch tails', () => {
     expect(view.container.querySelector('[data-state="running"]')).not.toBeNull()
   })
 
-  it('DetailsPanel title falls to 详情 when the selection has no toolName and no material', () => {
+  it('DetailsPanel title falls to 开发流程 when the selection has no toolName and no material', () => {
     localStorage.clear()
     const snap = snapshotBase()
     const chat = createChatStore().create()
@@ -116,10 +117,17 @@ describe('render branch tails', () => {
       items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
       baselinesReady: true, recentWorkspaceId: undefined,
     })
+    const workflowCalls: string[] = []
     const view = render(
       <DetailsPanel
         SessionProvider={SessionProviderStub}
-        renderSlot={renderToolDetailsProbe()}
+        renderSlot={(key, owner) => {
+          if (key === 'conversation.details.workflow') {
+            workflowCalls.push(key)
+            return <div data-testid="workflow-seat" />
+          }
+          return renderToolDetailsProbe()(key, owner)
+        }}
         sessionId={SID}
         useSession={bindSnapshotSelector({ getSnapshot: () => snap, subscribe: () => () => {} })}
         useSessions={bindSnapshotSelector(emptyList)}
@@ -139,8 +147,52 @@ describe('render branch tails', () => {
         t={t}
       />,
     )
-    expect(view.getByText('详情')).toBeTruthy()
+    // Selection without material still shows the tool-details fallback title path
+    // via toolName absence → workflowTitle only when selection is null; ghost
+    // selection without material uses details.title / notInWindow.
     expect(view.getByText('该调用不在当前窗口内')).toBeTruthy()
+    expect(view.getByTestId('workflow-seat')).toBeTruthy()
+    expect(workflowCalls).toEqual(['conversation.details.workflow'])
+  })
+
+  it('DetailsPanel shows 开发流程 and always mounts the workflow seat with no selection', () => {
+    localStorage.clear()
+    const snap = snapshotBase()
+    const chat = createChatStore().create()
+    const emptyList = createSnapshotStore<SessionListState>(
+      { ids: [], byId: {}, current: undefined, phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined })
+    const emptyWorkspaces = createSnapshotStore<WorkspaceListState>({
+      items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
+      baselinesReady: true, recentWorkspaceId: undefined,
+    })
+    const view = render(
+      <DetailsPanel
+        SessionProvider={SessionProviderStub}
+        renderSlot={key => key === 'conversation.details.workflow'
+          ? <div data-testid="workflow-seat" />
+          : <div data-testid="tool-details-seat" />}
+        sessionId={SID}
+        useSession={bindSnapshotSelector({ getSnapshot: () => snap, subscribe: () => () => {} })}
+        useSessions={bindSnapshotSelector(emptyList)}
+        useWorkspaces={bindSnapshotSelector(emptyWorkspaces)}
+        useProjection={(() => undefined)}
+        useInput={(() => { throw new Error('unused') })}
+        inputActions={{
+          setDraft: () => {},
+          addImages: () => true,
+          removeImage: () => {},
+          pruneImages: () => {},
+          submit: () => {},
+        }}
+        useStore={bindSnapshotSelector(chat)}
+        actions={chat.actions}
+        closeDetails={vi.fn()}
+        t={t}
+      />,
+    )
+    expect(view.getByText('开发流程')).toBeTruthy()
+    expect(view.getByTestId('workflow-seat')).toBeTruthy()
+    expect(view.getByText('点击消息流中的工具行查看详情')).toBeTruthy()
   })
 
   it('DetailsPanel resolves a nested run_code leaf to its full logged args and output', () => {

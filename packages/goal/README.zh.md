@@ -8,6 +8,7 @@ agent 会话的持久目标状态，独立于消费它的面向模型工具与�
 |---|---|---|
 | [`goal/`](goal/README.md) | 目标状态与生命周期 | `ctx.goals` |
 | [`goal-round-driver/`](goal-round-driver/README.md) | 同会话目标续行 | 无 |
+| [`goal-conversation-monitor/`](goal-conversation-monitor/README.md) | 会话自动开发开关与监测 | `ctx.autoDev` |
 | [`tool-goal/`](tool-goal/README.md) | 面向模型的目标工具 | 无 |
 | [`command-goal/`](command-goal/README.md) | 面向用户的目标命令 | 无 |
 

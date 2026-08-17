@@ -1,11 +1,12 @@
 /**
  * GoalBar: the goal indicator docked above the message composer (input dock
  * strip). A present goal shows a goal glyph, a phase label, the truncated
- * objective, and icon actions — resume when paused, edit (inline form in the
- * same strip), and clear. Goal creation lives on the `/goal` command, not
- * here: loading (undefined), no goal (null), and complete goals render
- * nothing. Live state arrives as the projected whole snapshot; the verbs are
- * the injected face.
+ * objective, and icon actions — pause when active, resume when active /
+ * paused / blocked (active re-arms after session-start disarm; the host treats
+ * an already-armed resume as a no-op), edit (inline form in the same strip),
+ * and clear. Goal creation lives on the `/goal` command, not here: loading
+ * (undefined), no goal (null), and complete goals render nothing. Live state
+ * arrives as the projected whole snapshot; the verbs are the injected face.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -50,16 +51,25 @@ export function GoalBar({ goal, onEdit, onPause, onResume, onClear, t }: GoalBar
 
   // React state disables the controls on the next render; the ref closes the
   // same-render window so rapid clicks cannot submit the same CAS twice.
+  // try/finally clears pending even when the Remote face throws before an
+  // envelope; otherwise every later icon stays disabled with no feedback.
   const runAction = useCallback(async (action: () => Promise<GoalActionResult>): Promise<GoalActionResult | undefined> => {
     if (pendingRef.current) return undefined
     pendingRef.current = true
     setPending(true)
     setActionError(null)
-    const result = await action()
-    pendingRef.current = false
-    setPending(false)
-    if (!result.ok) setActionError(`${result.error.message} (${result.error.code})`)
-    return result
+    try {
+      const result = await action()
+      if (!result.ok) setActionError(`${result.error.message} (${result.error.code})`)
+      return result
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      setActionError(message)
+      return undefined
+    } finally {
+      pendingRef.current = false
+      setPending(false)
+    }
   }, [])
 
   const handleEdit = useCallback(async () => {
@@ -139,13 +149,11 @@ export function GoalBar({ goal, onEdit, onPause, onResume, onClear, t }: GoalBar
               </button>
             </Tooltip>
           )}
-          {goal.phase === 'paused' && (
-            <Tooltip label={t('action.resume')} side="bottom" delayMs={500}>
-              <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void runAction(onResume) }} aria-label={t('action.resume')}>
-                <IconPlayOutline16 size={14} />
-              </button>
-            </Tooltip>
-          )}
+          <Tooltip label={t('action.resume')} side="bottom" delayMs={500}>
+            <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void runAction(onResume) }} aria-label={t('action.resume')}>
+              <IconPlayOutline16 size={14} />
+            </button>
+          </Tooltip>
           <Tooltip label={t('action.edit')} side="bottom" delayMs={500}>
             <button
               type="button"

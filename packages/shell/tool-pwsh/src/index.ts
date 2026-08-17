@@ -104,6 +104,9 @@ function pwshDescription(backgroundEnabled: boolean, escalationModes: readonly S
   const background = backgroundEnabled
     ? 'Set `run_in_background: true` for long-running commands: the call returns a job id immediately; read its output with `job_output` and stop it with `job_kill`.'
     : 'Background execution is not available; long-running commands must finish within the timeout.'
+  const timeoutRetry = backgroundEnabled
+    ? 'retry with a larger `timeoutMs`, `run_in_background: true`, or a different approach in the SAME turn'
+    : 'retry with a larger `timeoutMs` or a different approach in the SAME turn'
   const base = 'Execute a PowerShell command (`pwsh -Command`) and return its stdout/stderr. '
     + 'Each call runs in a fresh pwsh process: no state (cwd, variables, functions) persists between calls — '
     + 'pass `workdir` instead of using `cd`. Paths use native Windows form (`C:\\...`); read environment '
@@ -111,7 +114,10 @@ function pwshDescription(backgroundEnabled: boolean, escalationModes: readonly S
     + 'Current harness environment facts are exposed through managed `$env:DSH_*` variables; inspect them when needed. '
     + 'Commands may run under a file sandbox; a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]` — a policy denial, not a bug in the command; do not retry another way. '
     + 'Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. '
-    + 'On Windows a force-killed command settles as `[exit code: 1]` without a signal marker — treat it as an interruption, not a command failure. '
+    + '`[timed out after …]` means this command\'s budget expired — ' + timeoutRetry + '; do not end the turn. '
+    + 'Non-zero `[exit code: N]` is a command failure to investigate and work around in the same turn, not a stop signal. '
+    + 'On Windows a force-kill without a timeout marker may settle as `[exit code: 1]` with no signal; '
+    + 'that alone is not a reason to end the turn. '
     + background
   if (escalationModes.length === 0) return base
   // The language-mode and named-pipe contracts below are Windows-restricted-token
@@ -245,8 +251,9 @@ export function apply(ctx: Context, config: Config = {}): void {
   ctx.systemPrompt.section({
     name: 'tool:pwsh',
     order: 105,
-    text: 'Non-zero exits are reported as `[exit code: N]` markers; investigate failures before moving on. '
-      + 'On Windows a killed process settles as `[exit code: 1]` without a signal marker; treat a bare exit 1 after an interruption as a termination, not a command failure.',
+    text: 'Non-zero exits are reported as `[exit code: N]` markers; investigate and continue in the same turn. '
+      + '`[timed out after …]` is a budget expiry — retry with a larger timeout, background the command, or change approach; do not end the turn. '
+      + 'On Windows a force-kill without a timeout marker may settle as `[exit code: 1]` with no signal; that alone is not a stop signal.',
   })
 
   ctx.tools.register(defineTool({

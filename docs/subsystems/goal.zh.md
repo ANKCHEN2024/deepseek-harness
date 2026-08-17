@@ -2,7 +2,7 @@
 
 [English](goal.md) | 中文
 
-事件溯源目标服务及其策略消费方共享的类型。[目标领域 Agent Note](../../.agents/notes/implemented/feature/2026-07-19-persisted-same-session-goal-domain.md) 负责记录持久化与激活决策；本页记录 [`packages/goal/goal/src/types.ts`](../../packages/goal/goal/src/types.ts) 中的确切字段和变体。
+事件溯源目标服务及其策略消费方共享的类型。[目标领域 Agent Note](../../.agents/notes/implemented/feature/2026-07-19-persisted-same-session-goal-domain.md) 负责记录持久化与激活决策；本页记录 [`packages/goal/goal/src/types.ts`](../../packages/goal/goal/src/types.ts) 中的确切字段和变体。同会话 round 续跑由 [`dsh-goal-round-driver`](../../packages/goal/goal-round-driver/README.md) 拥有；可在不伪造人类证明的前提下发明或重新武装 goal 的选择加入会话自动开发监测器是 [`dsh-goal-conversation-monitor`](../../packages/goal/goal-conversation-monitor/README.md)（[Agent Note](../../.agents/notes/implemented/feature/2026-08-15-conversation-auto-dev-monitor.md)）。
 
 ## 标识与生命周期
 
@@ -205,6 +205,7 @@ create(agent: Agent, request: CreateGoalRequest): GoalView
 /**
  * Resume and arm a stopped goal, or rearm an active goal after a
  * session-start edge, while its round budget still has capacity.
+ * An already-armed active goal is a no-op success (same revision).
  * @param agent - owning live agent.
  * @param ref - expected current revision.
  * @returns the active view.

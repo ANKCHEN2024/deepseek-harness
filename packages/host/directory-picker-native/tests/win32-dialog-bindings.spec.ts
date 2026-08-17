@@ -180,6 +180,15 @@ describe('loadWin32DialogBindings over the fake COM world', () => {
     expect(world.uninitialized).toBe(1)
   })
 
+  it('reads the full path when a character\'s UTF-16LE low byte is zero', async () => {
+    // U+5F00 开 encodes as [0x00, 0x5f] in UTF-16LE: the scan must not read
+    // its leading zero byte as the NUL terminator (the truncated-path bug).
+    const world = comWorld({ path: 'D:\\Desktop\\陕煤煤层气开发利用有限公司' })
+    installFakeKoffi(world)
+    const bindings = await (await loadBindingsModule()).loadWin32DialogBindings()
+    expect(runFolderDialog(bindings, 'Pick', vi.fn())).toBe('D:\\Desktop\\陕煤煤层气开发利用有限公司')
+  })
+
   it('maps dismissal and the S_FALSE CoInitializeEx', async () => {
     const world = comWorld({ showHr: HRESULT_CANCELLED, coInitHr: 1 })
     installFakeKoffi(world)

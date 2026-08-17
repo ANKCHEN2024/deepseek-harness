@@ -31,7 +31,8 @@ const DEFAULT_PERSISTENCE_ROOT = './.sessions'
 /**
  * App config: the swappable per-deployment values. `provider` and `model` configure
  * each agent the ACP bridge creates at `session/new`; `persona` is the
- * deployment persona (forwarded to the system-prompt plugin); `toolOrder` is
+ * deployment persona and `language` the deployment language directive (both
+ * forwarded to the system-prompt plugin); `toolOrder` is
  * the explicit model-facing tool order (forwarded to the system-prompt plugin);
  * `tools` is the tool registry's config (its presentation `mode`, forwarded
  * through agent-spine-demo); `persistenceRoot` is the JSONL backend's directory.
@@ -45,6 +46,8 @@ export interface Config {
   maxParallelToolCalls?: number
   /** Deployment persona (the system-prompt plugin's `persona` config). */
   persona?: string
+  /** Deployment language directive (the system-prompt plugin's `language` config; see dsh-system-prompt). */
+  language?: string
   /** Explicit model-facing tool order (the system-prompt plugin's `toolOrder` config; see dsh-system-prompt). */
   toolOrder?: string[]
   /** Tool-registry config — its presentation `mode` (forwarded through agent-spine-demo; see dsh-tools). */
@@ -81,6 +84,7 @@ export const Config: z<Config> = z.object({
   model: z.string().required(),
   maxParallelToolCalls: z.number().step(1).min(1),
   persona: z.string(),
+  language: z.string(),
   // The array default is forced to undefined: ABSENT means "lexicographic
   // order" (the owning dsh-system-prompt schema does the same), while
   // schemastery's native [] default would read as an invalid configured list.
@@ -103,7 +107,7 @@ export const Config: z<Config> = z.object({
 /**
  * Compose the spine with the ACP automation transport. The agent-spine-demo bundle pre-creates
  * NO agents (its `agents` list defaults to `[]`) and carries the deployment
- * `persona`; the JSONL backend and derived query index persist under
+ * `persona` and `language` directive; the JSONL backend and derived query index persist under
  * `persistenceRoot`; the ACP bridge owns stdout for JSON-RPC and creates one
  * agent per `session/new` from the provider/model pair. The composite effect
  * unloads in reverse order, keeping checkpoint and persistence listeners
